@@ -96,15 +96,15 @@ def astar[T](
     def push(item, prio):
         heapq.heappush(q, (prio, next(sequence), item))
     def pop():
-        prio, _, item = heapq.heappop(q)
-        return prio, item
+        _, _, item = heapq.heappop(q)
+        return item
 
     updates, loops, rescans = 0, 0, 0
 
     dist[start] = 0
     push(start, dist[start])
     while len(q) > 0:
-        _, node = pop()
+        node = pop()
         verbose > 1 and print(f"pop: {node = }")
         if node == end:
             verbose > 1 and print(f"found goal: {end}")
@@ -133,7 +133,7 @@ def astar[T](
                 if n in dist: updates += 1
                 prev[n] = node
                 dist[n] = ndist
-                push((n, dist[n]), dist[n] + est_remaining(n, end))
+                push(n, dist[n] + est_remaining(n, end))
 
         seen.add(node)
 
