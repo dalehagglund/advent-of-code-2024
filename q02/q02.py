@@ -156,7 +156,7 @@ def read_input(filename: str) -> list[list[int]]:
         s = map(list, s)
         return list(s)
 
-def part1(filename):
+def part1(filename, trydeletes=False):
     levels = read_input(filename)
     print(f"{len(levels) = }")
 
@@ -173,7 +173,18 @@ def part1(filename):
             return False
         return all(1 <= abs(d) <= 3 for d in deltas)
 
-    print(sum(safe(level) for level in levels))
+    status = [safe(level) for level in levels]
+    if not trydeletes:
+        print(sum(status))
+        return
+    
+    print(sum(
+        any(
+            safe(level[:i] + level[i+1:])
+            for i in range(len(level))
+        )
+        for level in levels
+    ))
 
 def part2(filename):
     grid = read_input(filename)
@@ -181,7 +192,7 @@ def part2(filename):
 def main():
     dispatch = dict(
         p1=part1, 
-        p2=part2,
+        p2=partial(part1, trydeletes=True),
     )
     filename = sys.argv[1]
     dispatch[Path(filename).name[:2]](filename)
