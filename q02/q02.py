@@ -80,7 +80,8 @@ def astar[T](
         neighbours: Callable[[T], Iterator[T]], 
         edge_cost: Callable[[T, T], int] = lambda n1, n2: 1, 
         est_remaining: Callable[[T, T], int] = lambda n1, n2: 0,
-        verbose: int = 0
+        verbose: int = 0,
+        statsevery: int = 500,
     ):
     from collections import defaultdict
     import functools
@@ -102,7 +103,16 @@ def astar[T](
         _, _, item = heapq.heappop(q)
         return item
 
-    updates, loops, rescans = 0, 0, 0
+    loops, updates, rescans = 0, 0, 0
+    def display_stats():
+        print(
+            f"..."
+            f" loops {loops}"
+            f" updates {updates}"
+            f" rescans {rescans}"
+            f" assigned {len(dist)}"
+            f" seen {len(seen)}"
+        )
 
     dist[start] = 0
     push(start, dist[start])
@@ -117,15 +127,8 @@ def astar[T](
             rescans += 1
         
         loops += 1
-        if verbose > 0 and loops % 500 == 0:
-            print(
-                f"..."
-                f" loops {loops}"
-                f" updates {updates}"
-                f" rescans {rescans}"
-                f" assigned {len(dist)}"
-                f" seen {len(seen)}"
-            )
+        if verbose > 0 and loops % statsevery == 0:
+            display_stats()
 
         for n in neighbours(node):
             verbose > 1 and print(f"... neighbour {n}")
@@ -141,14 +144,36 @@ def astar[T](
         seen.add(node)
 
     verbose > 1 and print("after search")
+    display_stats()
     return dist, prev
 
-def read_input(filename: str):
+def read_input(filename: str) -> list[list[int]]:
      with open(filename) as f:
-        return ...
+        s = f.readlines()
+        s = map(str.rstrip, s)
+        s = map(str.split, s)
+        s = map(partial(map, int), s)
+        s = map(list, s)
+        return list(s)
 
 def part1(filename):
-    xyzzy = read_input(filename)
+    levels = read_input(filename)
+    print(f"{len(levels) = }")
+
+    def sign(n: int) -> int:
+        if n < 0: return -1
+        if n > 0: return +1
+        return 0
+    
+    def safe(level: list[int]) -> bool:
+        deltas = list(map(star(operator.sub), pairwise(level)))
+        if any(sign(d) == 0 for d in deltas):
+            return False
+        if not all(sign(d1) == sign(d2) for d1, d2 in pairwise(deltas)):
+            return False
+        return all(1 <= abs(d) <= 3 for d in deltas)
+
+    print(sum(safe(level) for level in levels))
 
 def part2(filename):
     grid = read_input(filename)
