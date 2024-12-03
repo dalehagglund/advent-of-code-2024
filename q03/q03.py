@@ -161,7 +161,7 @@ def read_input(filename: str) -> list[str]:
         s = map(str.rstrip, s)
         return list(s)
 
-def part1(filename, trydeletes=False):
+def part1(filename, handledo=False):
     print("*** part1 ***")
     lines = read_input(filename)
 
@@ -179,9 +179,9 @@ def part1(filename, trydeletes=False):
             op = m.group(1)
             # print(op)
             if op == "do":
-                enabled = True
+                if handledo: enabled = True
             elif op == "don't":
-                enabled = False
+                if handledo: enabled = False
             elif op == "mul":
                 n1, n2 = map(int, (m.group(3), m.group(4)))
                 if enabled:
@@ -198,7 +198,7 @@ def part2(filename):
 def main():
     dispatch = {
         "1": part1, 
-        "2": part2,
+        "2": partial(part1, handledo=True),
     }
     parts = sys.argv[1]
     filename = sys.argv[2]
