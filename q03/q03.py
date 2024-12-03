@@ -166,28 +166,28 @@ def part1(filename, handledo=False):
     lines = read_input(filename)
 
     ops = r"""(?x)
-        (mul|do|don't)\(((\d+),(\d+))?\)
+        (mul | do | don't) \(
+            ( (?:\d+) , (?:\d+) )?
+        \)
     """
 
     total = 0
     enabled = True
-
-    for prog in lines:
-        for m in re.finditer(ops, prog):
-            # print(f"{enabled = }")
-            # print(f"{m = }")
-            op = m.group(1)
-            # print(op)
-            if op == "do":
-                if handledo: enabled = True
-            elif op == "don't":
-                if handledo: enabled = False
-            elif op == "mul":
-                n1, n2 = map(int, (m.group(3), m.group(4)))
-                if enabled:
-                    total += n1 * n2
-            else:
-                assert False
+    for m in re.finditer(ops, "".join(lines)):
+        # print(f"{enabled = }")
+        # print(f"{m = }")
+        op = m.group(1)
+        # print(op)
+        if op == "do":
+            if handledo: enabled = True
+        elif op == "don't":
+            if handledo: enabled = False
+        elif op == "mul":
+            n1, n2 = map(int, m.group(2).split(","))
+            if enabled:
+                total += n1 * n2
+        else:
+            assert False
 
     print(total)
 
