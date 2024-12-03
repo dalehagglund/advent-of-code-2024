@@ -4,6 +4,7 @@ import functools
 import heapq
 import math
 import operator
+import re
 import sys
 import pytest
 import hypothesis
@@ -154,19 +155,44 @@ def astar[T](
     display_stats()
     return dist, prev
 
-def read_input(filename: str) -> list[list[int]]:
+def read_input(filename: str) -> list[str]:
      with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
-        s = map(str.split, s)
-        s = map(partial(map, int), s)
-        s = map(list, s)
         return list(s)
 
 def part1(filename, trydeletes=False):
-    levels = read_input(filename)
+    print("*** part1 ***")
+    lines = read_input(filename)
+
+    ops = r"""(?x)
+        (mul|do|don't)\(((\d+),(\d+))?\)
+    """
+
+    total = 0
+    enabled = True
+
+    for prog in lines:
+        for m in re.finditer(ops, prog):
+            # print(f"{enabled = }")
+            # print(f"{m = }")
+            op = m.group(1)
+            # print(op)
+            if op == "do":
+                enabled = True
+            elif op == "don't":
+                enabled = False
+            elif op == "mul":
+                n1, n2 = map(int, (m.group(3), m.group(4)))
+                if enabled:
+                    total += n1 * n2
+            else:
+                assert False
+
+    print(total)
 
 def part2(filename):
+    print("*** part2 ***")
     grid = read_input(filename)
 
 def main():
