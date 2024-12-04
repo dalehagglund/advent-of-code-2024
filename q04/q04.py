@@ -214,20 +214,15 @@ def read_input(filename: str) -> np.typing.NDArray[str]:
 def part1(filename, handledo=False):
     print("*** part1 ***")
     grid = read_input(filename)
-    print(grid)
     nrow, ncol = grid.shape
 
     target = np.array(list("XMAS"), np.dtypes.StringDType)
-
     dirs = list(
         (r, c)
         for r, c
         in product([-1, 0, +1], [-1, 0, +1])
         if r != 0 or c != 0
     )
-
-    print(f"{target = }")
-    print(f"{dirs = }")
 
     def ray(start, dir):
         r, c = start
@@ -244,12 +239,10 @@ def part1(filename, handledo=False):
             cs.append(c)
         return rs, cs
     
-    xlocs = locate(grid == "X")
     matches = 0
+    xlocs = locate(grid == "X")
     for xpos, dir in product(xlocs, dirs):
-        # print(f"... {xpos = } {dir = }")
         rs, cs = xypath(xpos, dir)
-        # print(f"{(rs, cs) = }")
         if len(rs) != len(target):
             continue
         if (grid[rs, cs] == target).all():
@@ -259,37 +252,15 @@ def part1(filename, handledo=False):
 def part2(filename):
     print("*** part2 ***")
     grid = read_input(filename)
-    print(grid)
-    nrow, ncol = grid.shape
 
-    target = "MAS"
-    corners = [     # cyclic order
-        (-1, -1),
-        (-1, +1),
-        (+1, +1),
-        (+1, -1),
-    ]
-
-    s = zip(cycle(corners), islice(cycle(corners), 1, None))
-    cornerpairs = list(islice(s, 4))
-
-    dirfrom = {
-        (-1, -1): (+1, +1),
-        (-1, +1): (+1, -1),
-        (+1, +1): (-1, -1),
-        (+1, -1): (-1, +1),
-    }
-
-    mask = np.array(
-        [[1, 0, 1],
-         [0, 1, 0],
-         [1, 0, 1]], dtype=np.dtypes.BoolDType)
-    target = np.array(
+    target_prototype = np.array(
         [list("M.S"),
          list(".A."),
          list("M.S")], dtype=np.dtypes.StringDType)
-    
-    targets = [np.rot90(target, k=i) for i in range(4) ]
+    # note that mask is unchanged by 90 deg rotations, so it
+    # can be used for all targets
+    mask = target_prototype != "."
+    targets = [np.rot90(target_prototype, k=i) for i in range(4) ]
 
     matches = 0
     for loc in locate(grid == "A"):
@@ -298,7 +269,11 @@ def part2(filename):
         if g.shape != mask.shape:
             # loc is too close to an edge
             continue
-        if any(((g == t) & mask == mask).all() for t in targets):
+        if any(
+            ((g == t) & mask == mask).all()
+            for t
+            in targets
+        ):
             matches += 1
 
     print(matches)
