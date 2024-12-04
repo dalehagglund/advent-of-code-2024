@@ -255,11 +255,76 @@ def part1(filename, handledo=False):
 
 def part2(filename):
     print("*** part2 ***")
+    grid = read_input(filename)
+    print(grid)
+    nrow, ncol = grid.shape
+
+    target = "MAS"
+    corners = [     # cyclic order
+        (-1, -1),
+        (-1, +1),
+        (+1, +1),
+        (+1, -1),
+    ]
+
+    s = zip(cycle(corners), islice(cycle(corners), 1, None))
+    cornerpairs = list(islice(s, 4))
+
+    dirfrom = {
+        (-1, -1): (+1, +1),
+        (-1, +1): (+1, -1),
+        (+1, +1): (-1, -1),
+        (+1, -1): (-1, +1),
+    }
+
+    print(f"{corners = }")
+    print(f"{cornerpairs = }")
+    print(f"{dirfrom = }")
+
+    alocs = locate(grid == "A")
+
+    def looking_at(
+            target: str,
+            xpos: tuple[int, int], 
+            dir: tuple[int, int]
+    ) -> bool:
+        r, c = xpos
+        dr, dc = dir
+
+        # print(f"> looking_at {(target, xpos, dir) = }")
+
+        def ray(start, dir):
+            r, c = start
+            dr, dc = dir
+            while r in range(nrow) and c in range(ncol):
+                yield r, c
+                r, c = r + dr, c + dc
+
+        i = -1
+        for i, (char, coord) in enumerate(zip(target, ray(xpos, dir))):
+            # print(f"... {(i, char, coord, grid[coord]) = }")
+            if char != grid[coord]:
+                return False
+        return i == len(target) - 1
+
+    matches = 0
+    
+    for apos, (c1, c2) in product(alocs, cornerpairs):
+        ar, ac = apos
+        dr1, dc1 = c1
+        dr2, dc2 = c2
+
+        c1good = looking_at(target, (ar + dr1, ac + dc1), dirfrom[c1])
+        c2good = looking_at(target, (ar + dr2, ac + dc2), dirfrom[c2])
+
+        if c1good and c2good: matches += 1
+    
+    print(matches)
 
 def main():
     dispatch = {
         "1": part1, 
-        "2": partial(part1, handledo=True),
+        "2": part2,
     }
     parts = sys.argv[1]
     filename = sys.argv[2]
