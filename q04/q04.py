@@ -217,39 +217,42 @@ def part1(filename, handledo=False):
     print(grid)
     nrow, ncol = grid.shape
 
-    target = "XMAS"
+    target = np.array(list("XMAS"), np.dtypes.StringDType)
+
     dirs = list(
-        product([-1, 0, +1], [-1, 0, +1])
+        (r, c)
+        for r, c
+        in product([-1, 0, +1], [-1, 0, +1])
+        if r != 0 or c != 0
     )
 
-    xlocs = locate(grid == "X")
+    print(f"{target = }")
+    print(f"{dirs = }")
 
-    def looking_at(
-            target: str,
-            xpos: tuple[int, int], 
-            dir: tuple[int, int]
-    ) -> bool:
-        r, c = xpos
+    def ray(start, dir):
+        r, c = start
         dr, dc = dir
+        while r in range(nrow) and c in range(ncol):
+            yield r, c
+            r, c = r + dr, c + dc
 
-        print(f"> looking_at {(target, xpos, dir) = }")
-
-        def ray(start, dir):
-            r, c = start
-            dr, dc = dir
-            while r in range(nrow) and c in range(ncol):
-                yield r, c
-                r, c = r + dr, c + dc
-
-        for i, (char, coord) in enumerate(zip(target, ray(xpos, dir))):
-            # print(f"... {(i, char, coord, grid[coord]) = }")
-            if char != grid[coord]:
-                return False
-        return i == len(target) - 1
-
+    def xypath(pos, dir, maxlen=4):
+        rs = []
+        cs = []
+        for i, (r, c) in zip(range(maxlen), ray(pos, dir)):
+            rs.append(r)
+            cs.append(c)
+        return rs, cs
+    
+    xlocs = locate(grid == "X")
     matches = 0
     for xpos, dir in product(xlocs, dirs):
-        if looking_at(target, xpos, dir):
+        # print(f"... {xpos = } {dir = }")
+        rs, cs = xypath(xpos, dir)
+        # print(f"{(rs, cs) = }")
+        if len(rs) != len(target):
+            continue
+        if (grid[rs, cs] == target).all():
             matches += 1
     print(matches)
 
