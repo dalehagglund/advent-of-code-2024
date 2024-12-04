@@ -1,24 +1,65 @@
-import collections
-from dataclasses import dataclass
-import functools
+import sys
+
 import heapq
 import math
 import operator
 import re
-import sys
-import pytest
-import hypothesis
-from hypothesis import given, strategies as st
-
-from pathlib import Path
-from functools import partial
-from collections import Counter, defaultdict, deque
-from itertools import batched, chain, combinations, count, cycle, filterfalse, groupby, islice, pairwise, permutations, product, repeat, takewhile, tee
 import textwrap
 import time
-from typing import Callable, Iterable, Iterator, NamedTuple, Never, Optional, assert_never, assert_type
-import itertools
 import numpy as np
+
+from dataclasses import dataclass
+
+from pathlib import Path
+
+import collections
+from collections import (
+    Counter,
+    defaultdict,
+    deque
+)
+
+import functools
+from functools import partial
+
+import itertools
+from itertools import (
+    batched, 
+    chain, 
+    combinations, 
+    count, 
+    cycle, 
+    filterfalse, 
+    groupby, 
+    islice, 
+    pairwise, 
+    permutations, 
+    product, 
+    repeat, 
+    takewhile,
+    tee
+)
+
+from typing import (
+    Any,
+    Callable, 
+    Iterable, 
+    Iterator,
+    Literal, 
+    NamedTuple, 
+    Never, 
+    Optional, 
+    assert_never, 
+    assert_type,
+    overload
+)
+
+import pytest
+import hypothesis
+from hypothesis import (
+    given,
+    strategies as st
+)
 
 def star(f):
     return lambda t: f(*t)
@@ -31,16 +72,28 @@ def mapnth(f, n):
         return t[:n] + (f(t[n]),) + t[n+1:]
     return update
 
-def observe[T](f: Callable, items: Iterable[T]) -> Iterator[T]:
+def observe[T](
+        f: Callable[[T], Any], 
+        items: Iterable[T]
+) -> Iterator[T]:
     for item in items:
         f(item)
         yield item
 
-def first[T](items: Iterable[T]) -> T | None:
+def first[T](
+        items: Iterable[T], 
+        strict: bool = False
+) -> T | None:
     items = iter(items)
-    return next(items, None)
+    if not strict:
+        return next(items, None)
+    if (item := next(items, None)) is None:
+        raise ValueError("no first item")
+    return item
 
-def only[T](items: Iterable[T]) -> T:
+def only[T](
+        items: Iterable[T]
+) -> T:
     items = iter(items)
     item = next(items, None)
     if item is None:
