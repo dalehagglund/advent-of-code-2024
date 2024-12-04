@@ -277,48 +277,27 @@ def part2(filename):
         (+1, -1): (-1, +1),
     }
 
-    print(f"{corners = }")
-    print(f"{cornerpairs = }")
-    print(f"{dirfrom = }")
-
-    alocs = locate(grid == "A")
-
-    def looking_at(
-            target: str,
-            xpos: tuple[int, int], 
-            dir: tuple[int, int]
-    ) -> bool:
-        r, c = xpos
-        dr, dc = dir
-
-        # print(f"> looking_at {(target, xpos, dir) = }")
-
-        def ray(start, dir):
-            r, c = start
-            dr, dc = dir
-            while r in range(nrow) and c in range(ncol):
-                yield r, c
-                r, c = r + dr, c + dc
-
-        i = -1
-        for i, (char, coord) in enumerate(zip(target, ray(xpos, dir))):
-            # print(f"... {(i, char, coord, grid[coord]) = }")
-            if char != grid[coord]:
-                return False
-        return i == len(target) - 1
+    mask = np.array(
+        [[1, 0, 1],
+         [0, 1, 0],
+         [1, 0, 1]], dtype=np.dtypes.BoolDType)
+    target = np.array(
+        [list("M.S"),
+         list(".A."),
+         list("M.S")], dtype=np.dtypes.StringDType)
+    
+    targets = [np.rot90(target, k=i) for i in range(4) ]
 
     matches = 0
-    
-    for apos, (c1, c2) in product(alocs, cornerpairs):
-        ar, ac = apos
-        dr1, dc1 = c1
-        dr2, dc2 = c2
+    for loc in locate(grid == "A"):
+        r, c = loc
+        g = grid[r-1:r+2, c-1:c+2]
+        if g.shape != mask.shape:
+            # loc is too close to an edge
+            continue
+        if any(((g == t) & mask == mask).all() for t in targets):
+            matches += 1
 
-        c1good = looking_at(target, (ar + dr1, ac + dc1), dirfrom[c1])
-        c2good = looking_at(target, (ar + dr2, ac + dc2), dirfrom[c2])
-
-        if c1good and c2good: matches += 1
-    
     print(matches)
 
 def main():
