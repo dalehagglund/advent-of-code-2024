@@ -204,6 +204,40 @@ def astar[T](
     display_stats()
     return dist, prev
 
+#
+# spent a while working thisi out over in the experiments directory.
+#
+def follow_ray(g, start, dir):
+    dr, dc = dir
+    nr, nc = g.shape
+    r, c = start
+
+    if (dr, dc) == (0, 0):
+        raise ValueError("direction vector is (0, 0)")
+
+    # note that `flipud(fliplr(g)) == fliplr(flipud(g))`. see below
+    # for a test confirming that.
+
+    if dc == -1:
+        # if the column direction is to the left, flip each row and
+        # flip the column index correspondingly
+        g = np.fliplr(g)
+        c = nc - 1 - c
+    if dr == -1:
+        # similarly, if the row direction is upwards, flip each column
+        # and flip the row index correspondingly
+        g = np.flipud(g)
+        r = nr - 1 - r
+
+    if 0 not in (dr, dc):
+        return np.diag(g, k=c-r)[min(r,c):]
+    elif dc == 0:
+        return g[r:, c]
+    elif dr == 0:
+        return g[r, c:]
+    else:
+        assert_never(dir)
+
 def read_input(filename: str) -> np.typing.NDArray[str]:
      with open(filename) as f:
         s = f.readlines()
@@ -214,7 +248,6 @@ def read_input(filename: str) -> np.typing.NDArray[str]:
 def part1(filename, handledo=False):
     print("*** part1 ***")
     grid = read_input(filename)
-    nrow, ncol = grid.shape
 
     target = np.array(list("XMAS"), np.dtypes.StringDType)
     dirs = list(
@@ -224,28 +257,11 @@ def part1(filename, handledo=False):
         if r != 0 or c != 0
     )
 
-    def ray(start, dir):
-        r, c = start
-        dr, dc = dir
-        while r in range(nrow) and c in range(ncol):
-            yield r, c
-            r, c = r + dr, c + dc
-
-    def xypath(pos, dir, maxlen=4):
-        rs = []
-        cs = []
-        for i, (r, c) in zip(range(maxlen), ray(pos, dir)):
-            rs.append(r)
-            cs.append(c)
-        return rs, cs
-    
     matches = 0
     xlocs = locate(grid == "X")
     for xpos, dir in product(xlocs, dirs):
-        rs, cs = xypath(xpos, dir)
-        if len(rs) != len(target):
-            continue
-        if (grid[rs, cs] == target).all():
+        ray = follow_ray(grid, xpos, dir)[:len(target)]
+        if ray.shape == target.shape and (ray == target).all():
             matches += 1
     print(matches)
 
@@ -256,7 +272,9 @@ def part2(filename):
     target_prototype = np.array(
         [list("M.S"),
          list(".A."),
-         list("M.S")], dtype=np.dtypes.StringDType)
+         list("M.S")],
+        dtype=np.dtypes.StringDType
+    )
     # note that mask is unchanged by 90 deg rotations, so it
     # can be used for all targets
     mask = target_prototype != "."
