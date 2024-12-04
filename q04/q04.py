@@ -204,14 +204,54 @@ def astar[T](
     display_stats()
     return dist, prev
 
-def read_input(filename: str) -> list[str]:
+def read_input(filename: str) -> np.typing.NDArray[str]:
      with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
-        return list(s)
+        s = map(list, s)
+        return np.array(list(s), dtype=np.dtypes.StringDType)
 
 def part1(filename, handledo=False):
     print("*** part1 ***")
+    grid = read_input(filename)
+    print(grid)
+    nrow, ncol = grid.shape
+
+    target = "XMAS"
+    dirs = list(
+        product([-1, 0, +1], [-1, 0, +1])
+    )
+
+    xlocs = locate(grid == "X")
+
+    def looking_at(
+            target: str,
+            xpos: tuple[int, int], 
+            dir: tuple[int, int]
+    ) -> bool:
+        r, c = xpos
+        dr, dc = dir
+
+        print(f"> looking_at {(target, xpos, dir) = }")
+
+        def ray(start, dir):
+            r, c = start
+            dr, dc = dir
+            while r in range(nrow) and c in range(ncol):
+                yield r, c
+                r, c = r + dr, c + dc
+
+        for i, (char, coord) in enumerate(zip(target, ray(xpos, dir))):
+            # print(f"... {(i, char, coord, grid[coord]) = }")
+            if char != grid[coord]:
+                return False
+        return i == len(target) - 1
+
+    matches = 0
+    for xpos, dir in product(xlocs, dirs):
+        if looking_at(target, xpos, dir):
+            matches += 1
+    print(matches)
 
 def part2(filename):
     print("*** part2 ***")
