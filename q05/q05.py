@@ -1,4 +1,6 @@
 import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
 
 import heapq
 import math
@@ -242,14 +244,86 @@ def read_input(filename: str) -> np.typing.NDArray[str]:
      with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
+        rules, editions = split(lambda line: line == "", s)
+
+        s = map(partial(str.split, sep="|"), rules)
+        s = map(partial(map, int), s)
+        s = map(tuple, s)
+        rules = list(s)
+
+        s = map(partial(str.split, sep=","), editions)
+        s = map(partial(map, int), s)
         s = map(list, s)
-        return np.array(list(s), dtype=np.dtypes.StringDType)
+        editions = list(s)
+
+        return rules, editions
+
+def part2(filename):
+    print("*** part1 ***")
+    rules, editions = read_input(filename)
+    print(rules, editions)
+    rules = set(rules)
+
+    def topsort(ed: list[int]):
+        ed = ed[:]
+        n = len(ed)
+        changed = True
+        while changed:
+            changed = False
+            for i in range(n-1):
+                for j in range(i+1, n):
+                    pi, pj = ed[i], ed[j]
+                    if not (pi, pj) in rules:
+                        ed[i], ed[j] = pj, pi
+                        changed = True
+
+        return ed
+
+    total = 0
+    print(f"{rules = }")
+    for ed in editions:
+        print(f"{ed = }")
+        correct = True
+        for i in range(len(ed) - 1):
+            if not correct: break
+            for j in range(i+1, len(ed)):
+                pi, pj = ed[i], ed[j]
+                if (pi, pj) not in rules:
+                    print(f"... {(pi, pj)} in the wrong order")
+                    correct = False
+                    break
+        print(f"... {correct = }")
+        if not correct:
+            ed = topsort(ed)
+            print(f" ... sorted {ed = }")
+            total += ed[len(ed) //2]
+
+    print(total)
 
 def part1(filename):
     print("*** part1 ***")
+    rules, editions = read_input(filename)
+    print(rules, editions)
 
-def part2(filename):
-    print("*** part2 ***")
+    rules = set(rules)
+
+    total = 0
+    print(f"{rules = }")
+    for ed in editions:
+        print(f"{ed = }")
+        correct = True
+        for i in range(len(ed) - 1):
+            for j in range(i+1, len(ed)):
+                pi, pj = ed[i], ed[j]
+                if (pi, pj) not in rules:
+                    print(f"... {(pi, pj)} in the wrong order")
+                    correct = False
+                    break
+        print(f"... {correct = }")
+        if correct:
+            total += ed[len(ed) //2]
+
+    print(total)
 
 def main():
     dispatch = {
