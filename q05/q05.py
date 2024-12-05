@@ -241,7 +241,7 @@ def follow_ray(g, start, dir):
         assert_never(dir)
 
 def read_input(filename: str) -> np.typing.NDArray[str]:
-     with open(filename) as f:
+    with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
         rules, editions = split(lambda line: line == "", s)
@@ -270,16 +270,7 @@ def part1(filename):
 
     total_fixed, total_ok = 0, 0
     for ed in editions:
-        correct = True
-        for i in range(len(ed) - 1):
-            if not correct:
-                break
-            for j in range(i+1, len(ed)):
-                pi, pj = ed[i], ed[j]
-                if (pi, pj) not in rules:
-                    correct = False
-                    break
-        if correct:
+        if all(pair in rules for pair in pairwise(ed)):
             total_ok += ed[len(ed) // 2]
         else:
             ed = sorted(ed, key=cmp)
