@@ -81,6 +81,22 @@ def observe[T](
         f(item)
         yield item
 
+def consume(iterator, n=None):
+    # Use functions that consume iterators at C speed.
+    if n is None:
+        collections.deque(iterator, maxlen=0)
+    else:
+        next(islice(iterator, n, n), None)
+
+def window[T](
+        items: Iterable[T], 
+        n: int
+) -> Iterator[tuple[T, ...]]:
+    iters = tee(items, n)
+    for it, skip in zip(iters, count()):
+        consume(it, skip)
+    return zip(*iters)
+
 def first[T](
         items: Iterable[T], 
         strict: bool = False
@@ -299,13 +315,140 @@ def part1(filename):
     print(len(set(locations)))
     
 
-def part2(filename):
-    print("*** part2 ***")
+class Pos(NamedTuple):
+    r: int
+    c: int
+    def __add__(self, other: "Pos"):
+        return Pos(self.r + other.r, self.c + other.c)
+    def __mul__(self, scale: int):
+        return Pos(self.r * scale, self.c * scale)
 
+def part2(filename):
+    print("******** PART 2 ********")
+    grid = read_input(filename)
+    # display(grid)
+
+    directions = {
+        "^": Pos(-1,  0),
+        ">": Pos( 0, +1),
+        "v": Pos(+1,  0),
+        "<": Pos( 0, -1),
+    }
+
+    right_turn = {
+        Pos(-1,  0): Pos( 0, +1),
+        Pos( 0, +1): Pos(+1,  0),
+        Pos(+1,  0): Pos( 0, -1),
+        Pos( 0, -1): Pos(-1,  0),
+    }
+
+    guard = only(locate(
+        (grid == "^") |
+        (grid == ">") |
+        (grid == "v") |
+        (grid == "<")
+    ))
+
+    def turns(
+            pos: tuple[int, int],
+            dir: tuple[int, int]
+    ) -> Iterator[tuple[
+        Pos,
+        Pos
+    ]]:
+        rows, cols = map(range, grid.shape)
+        r, c = pos
+        dr, dc = dir
+
+        while True:
+            if not(r + dr in rows and c + dc in rows):
+                break
+            if grid[r + dr, c + dc] == "#":
+                dr, dc = right_turn[dr, dc]
+                yield Pos(r, c), Pos(dr, dc)
+            r, c = r + dr, c + dc
+
+    def dist(p1, p2) -> int: # mahattan distance
+        r1, c1 = p1
+        r2, c2 = p2
+        return abs(r1 - r2) + abs(c1 - c2)
+
+    dir = Pos(*directions[grid[guard]])
+    # print(f"{(guard, dir) = }")
+    grid[guard] = "." # guard symbol gets in the way later
+
+    def minmax[T](items: Iterable[T]) -> tuple[T, T]:
+        items = list(items)
+        return min(items), max(items)
+
+    def missing_corner(p1, p2, p3) -> tuple[int, int]:
+        minc, maxc = minmax(c for _, c in (p1, p2, p3))
+        minr, maxr = minmax(r for r, _ in (p1, p2, p3))
+
+        for c in [
+            (minr, minc),
+            (minr, maxc),
+            (maxr, minc),
+            (maxr, maxc),
+        ]:
+            if c not in (p1, p2, p3):
+                return Pos(c[0], c[1])
+            
+        raise ValueError("no missing corner?")
+
+    def advance(p1, target, dir):
+        r, c = p1
+        dr, dc = dir
+        while grid[r, c] == "." and (r, c) != target: 
+            r, c = r + dr,c + dc
+        if (r, c) != target:
+            r, c = r - dr, c - dc
+        return Pos(r, c)
+
+    locations = list(turns(guard, dir))
+    windows = list(window(locations, 3))
+    obstacles: list[Pos] = []
+
+    print(f"{len(locations), len(windows) = }")
+    # print(f"{locations = }")
+    # print(f"{windows = }")
+    for i, ((p1, d1), (p2, d2), (p3, d3)) in enumerate(windows):
+        print(f"*** {i}:points {p1} {p2} {p3}...")
+
+        for i in range(5):
+            print("... pass ",i)
+            g2 = grid.copy()
+            g2[p1] = '1'
+            g2[p2] = '2'
+            g2[p3] = '3'
+            # display(g2)
+
+            corner = missing_corner(p1, p2, p3)
+            reachable = advance(p3, corner, d3)
+
+            # print(f"... ... missing corner {corner}")
+            # print(f"... ... stopped at {reachable}")
+
+            g2[corner] = '*'
+            g2[reachable] = 'R'
+            display(g2)
+
+            if reachable == corner and grid[reachable + d3] == ".":
+                o = reachable + d3
+                if o not in obstacles:
+                    obstacles.append(reachable + d3)
+                print(f"... POSSIBLE! {o}")
+                break
+
+            p1, p2, p3 = p2, p3, reachable
+            d3 = right_turn[d3]
+
+    print(obstacles)
+    
 def main():
     dispatch = {
         "1": part1, 
-        "2": part1,
+        "2": part2,
     }
     parts = sys.argv[1]
     filename = sys.argv[2]
