@@ -326,6 +326,80 @@ class Pos(NamedTuple):
 def part2(filename):
     print("******** PART 2 ********")
     grid = read_input(filename)
+
+    dir_to_pos = {
+        "^": Pos(-1,  0),
+        ">": Pos( 0, +1),
+        "v": Pos(+1,  0),
+        "<": Pos( 0, -1),
+    }
+
+    pos_to_dir = dict((v, k) for k, v in dir_to_pos.items())
+
+    right_turn = {
+        Pos(-1,  0): Pos( 0, +1),
+        Pos( 0, +1): Pos(+1,  0),
+        Pos(+1,  0): Pos( 0, -1),
+        Pos( 0, -1): Pos(-1,  0),
+    }
+
+    guard = Pos(*only(locate(
+        (grid == "^") |
+        (grid == ">") |
+        (grid == "v") |
+        (grid == "<")
+    )))
+
+    def track(
+            grid,
+            pos: Pos,
+            dir: Pos
+    ) -> Iterator[tuple[Pos, Pos]]:
+        rows, cols = map(range, grid.shape)
+        while True:
+            yield pos, dir
+            while True:
+                nextpos = pos + dir
+                if not (nextpos.r in rows and nextpos.c in cols):
+                    return
+                if grid[nextpos] not in "#O":
+                    break
+                dir = right_turn[dir]
+            pos = pos + dir
+
+    def cycle(path: Iterable[tuple[Pos, Pos]]) -> bool:
+        visited = set()
+        for state in path:
+            if state in visited:
+                return True
+            visited.add(state)
+        return False
+
+    dir = dir_to_pos[grid[guard]]
+    grid[guard] = "."
+
+    locations: set[Pos] = set()
+    possible_obstacles = [
+        pos 
+        for pos, _
+        in track(grid.copy(), guard, dir)
+    ]
+    for i, pos in enumerate(possible_obstacles[1:]):
+        if i % 1000 == 0:
+            print(f"{i}: {len(locations)}")
+        assert (grid != "O").all() 
+        grid[pos] = "O"
+        if cycle(track(grid, guard, dir)):
+            locations.add(pos)
+        grid[pos] = "."
+
+    if len(locations) < 20: 
+        print(f"{locations = }")
+    print(f"{len(locations) = }")
+
+def part2broken(filename):
+    print("******** PART 2 ********")
+    grid = read_input(filename)
     # display(grid)
 
     directions = {
