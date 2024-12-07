@@ -272,7 +272,7 @@ def read_input(
         )
         return list(s)
                      
-def part1(filename):
+def part1(filename, part2=False):
     print("*** part1 ***")
     equations = read_input(filename)
     print(equations)
@@ -292,15 +292,29 @@ def part1(filename):
             remaining -= 1
             nexts = cycle(islice(iterators, remaining))
 
+    if part2:
+        operators = ["+", "*", "||"]
+    else:
+        operators = ["+", "*"]
+
     calibration = 0
-    for result, operands in equations:
+    for i, (result, operands) in enumerate(equations):
+        print(f"{i}: {result} | {operands}")
         assert len(operands) >= 2
-        for operators in product("+*", repeat=len(operands)-1):
-            expr = list(interleave(operands, operators))
+        # print(result, operands)
+        for ops in product(operators, repeat=len(operands)-1):
+            expr = list(interleave(operands, ops))
+            # print("...", ops)
             while len(expr) >= 3:
                 match expr[:3]:
-                    case (n, '*', m): expr[:3] = [n * m]
-                    case (n, '+', m): expr[:3] = [n + m]
+                    case (n, '*', m):
+                        expr[:3] = [n * m]
+                    case (n, '+', m):
+                        expr[:3] = [n + m]
+                    case (n, '||', m):
+                        expr[:3] = [int(str(n) + str(m))]
+                    case  _:
+                        assert_never(None)
             assert len(expr) == 1
             if expr[0] == result:
                 calibration += result
@@ -322,7 +336,7 @@ def part2(filename):
 def main():
     dispatch = {
         "1": part1, 
-        "2": part2,
+        "2": partial(part1, part2=True),
     }
     parts = sys.argv[1]
     filename = sys.argv[2]
