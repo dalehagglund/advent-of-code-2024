@@ -286,39 +286,58 @@ def read_input(
             s
         )
         return list(s)
-                     
+
+def solvable(target, operands, position, part2, lastop=None, depth=0) -> bool:
+    if position == 0:
+        return target == operands[position]
+    
+    args = dict(
+        operands=operands,
+        position=position-1,
+        part2=part2,
+        depth=depth+1
+    )
+    
+    quot, rem = divmod(target, operands[position])
+    if rem == 0 and solvable(quot, lastop="*", **args):
+        return True
+    
+    reduced = target - operands[position]
+    if reduced >= 0 and solvable(reduced, lastop="+", **args):
+        return True
+    
+    if not part2:
+        return False
+    
+    # I found understanding this just a bit tricky: we want to find
+    # some prefix such that _prefix || operand_ is equal to _target_.
+    # This is the same as saying that
+    # 
+    # - the operand must be a *suffix* of the current target, and 
+    # - the prefix can't be empty
+    # 
+    # if those are both true, then the new target is the integer value
+    # of the prefix
+    suffix, t = str(operands[position]), str(target)
+    if (
+        t.endswith(suffix)                       # target ends with operand
+        and len(prefix := t[:-len(suffix)]) > 0  # with a non-empty prefix
+        and solvable(int(prefix), lastop="||", **args)
+    ):
+        return True
+    
+    return False
+
 def part1(filename, part2=False):
     print("*** part1 ***")
     equations = read_input(filename)
-    print(equations)
-
-    if part2:
-        operators = ["+", "*", "||"]
-    else:
-        operators = ["+", "*"]
+    # print(equations)
 
     calibration = 0
     for i, (result, operands) in enumerate(equations):
-        print(f"{i}: {result} | {operands}")
         assert len(operands) >= 2
-        # print(result, operands)
-        for ops in product(operators, repeat=len(operands)-1):
-            expr = list(interleave(operands, ops))
-            # print("...", ops)
-            while len(expr) >= 3:
-                match expr[:3]:
-                    case (n, '*', m):
-                        expr[:3] = [n * m]
-                    case (n, '+', m):
-                        expr[:3] = [n + m]
-                    case (n, '||', m):
-                        expr[:3] = [int(str(n) + str(m))]
-                    case  _:
-                        assert_never(None)
-            assert len(expr) == 1
-            if expr[0] == result:
-                calibration += result
-                break
+        if solvable(result, operands, len(operands) - 1, part2=part2):
+            calibration += result
     
     print(calibration)
 
