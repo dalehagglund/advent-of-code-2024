@@ -112,8 +112,6 @@ def interleave(*iterables: Iterable) -> Iterator:
         remaining -= 1
         nexts = cycle(islice(iterators, remaining))
 
-
-
 def first[T](
         items: Iterable[T], 
         strict: bool = False
@@ -323,14 +321,6 @@ def part1(filename, part2=False):
                 break
     
     print(calibration)
-
-class Pos(NamedTuple):
-    r: int
-    c: int
-    def __add__(self, other: "Pos"):
-        return Pos(self.r + other.r, self.c + other.c)
-    def __mul__(self, scale: int):
-        return Pos(self.r * scale, self.c * scale)
 
 def part2(filename):
     print("******** PART 2 ********")
