@@ -97,6 +97,23 @@ def window[T](
         consume(it, skip)
     return zip(*iters)
 
+def interleave(*iterables: Iterable) -> Iterator:
+    iterators = cycle(iter(it) for it in iterables)
+    sentinel = object()
+
+    remaining = len(iterables)
+    while remaining > 0:
+        while True:
+            it = next(iterators)
+            value = next(it, sentinel) 
+            if value == sentinel:
+                break
+            yield value
+        remaining -= 1
+        nexts = cycle(islice(iterators, remaining))
+
+
+
 def first[T](
         items: Iterable[T], 
         strict: bool = False
@@ -276,21 +293,6 @@ def part1(filename, part2=False):
     print("*** part1 ***")
     equations = read_input(filename)
     print(equations)
-
-    def interleave(*iterables: Iterable) -> Iterator:
-        iterators = cycle(iter(it) for it in iterables)
-        sentinel = object()
-
-        remaining = len(iterables)
-        while remaining > 0:
-            while True:
-                it = next(iterators)
-                value = next(it, sentinel) 
-                if value == sentinel:
-                    break
-                yield value
-            remaining -= 1
-            nexts = cycle(islice(iterators, remaining))
 
     if part2:
         operators = ["+", "*", "||"]
