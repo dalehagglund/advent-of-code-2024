@@ -258,62 +258,55 @@ def follow_ray(g, start, dir):
 
 def read_input(
         filename: str
-) -> np.ndarray:
+) -> list[tuple[int, list[int]]]:
     with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
-        s = map(list, s)
-        return np.array(list(s), np.dtypes.StringDType)
-
+        s = map(partial(str.split, sep=": "), s)
+        s = map(
+            star(lambda left, right: (
+                int(left), 
+                [int(s) for s in right.split(" ")]
+            )),
+            s
+        )
+        return list(s)
+                     
 def part1(filename):
     print("*** part1 ***")
-    grid = read_input(filename)
-    print(grid)
+    equations = read_input(filename)
+    print(equations)
 
-    directions = {
-        "^": (-1,  0),
-        ">": ( 0, +1),
-        "v": (+1,  0),
-        "<": ( 0, -1),
-    }
+    def interleave(*iterables: Iterable) -> Iterator:
+        iterators = cycle(iter(it) for it in iterables)
+        sentinel = object()
 
-    right_turn = {
-        (-1,  0): ( 0, +1),
-        ( 0, +1): (+1,  0),
-        (+1,  0): ( 0, -1),
-        ( 0, -1): (-1,  0),
-    }
+        remaining = len(iterables)
+        while remaining > 0:
+            while True:
+                it = next(iterators)
+                value = next(it, sentinel) 
+                if value == sentinel:
+                    break
+                yield value
+            remaining -= 1
+            nexts = cycle(islice(iterators, remaining))
 
-    guard = only(locate(
-        (grid == "^") |
-        (grid == ">") |
-        (grid == "v") |
-        (grid == "<")
-    ))
-
-    def track(
-            pos: tuple[int, int],
-            dir: tuple[int, int]
-    ) -> Iterator[tuple[int, int]]:
-        rows, cols = map(range, grid.shape)
-        r, c = pos
-        dr, dc = dir
-
-        while True:
-            yield r, c
-            if not(r + dr in rows and c + dc in rows):
+    calibration = 0
+    for result, operands in equations:
+        assert len(operands) >= 2
+        for operators in product("+*", repeat=len(operands)-1):
+            expr = list(interleave(operands, operators))
+            while len(expr) >= 3:
+                match expr[:3]:
+                    case (n, '*', m): expr[:3] = [n * m]
+                    case (n, '+', m): expr[:3] = [n + m]
+            assert len(expr) == 1
+            if expr[0] == result:
+                calibration += result
                 break
-            if grid[r + dr, c + dc] == "#":
-                dr, dc = right_turn[dr, dc]
-            r, c = r + dr, c + dc
-
-    dir = directions[grid[guard]]
-    print(f"{(guard, dir) = }")
-
-    locations = list(track(guard, dir))
-    print(locations)
-    print(len(set(locations)))
     
+    print(calibration)
 
 class Pos(NamedTuple):
     r: int
@@ -325,200 +318,7 @@ class Pos(NamedTuple):
 
 def part2(filename):
     print("******** PART 2 ********")
-    grid = read_input(filename)
 
-    dir_to_pos = {
-        "^": Pos(-1,  0),
-        ">": Pos( 0, +1),
-        "v": Pos(+1,  0),
-        "<": Pos( 0, -1),
-    }
-
-    pos_to_dir = dict((v, k) for k, v in dir_to_pos.items())
-
-    right_turn = {
-        Pos(-1,  0): Pos( 0, +1),
-        Pos( 0, +1): Pos(+1,  0),
-        Pos(+1,  0): Pos( 0, -1),
-        Pos( 0, -1): Pos(-1,  0),
-    }
-
-    guard = Pos(*only(locate(
-        (grid == "^") |
-        (grid == ">") |
-        (grid == "v") |
-        (grid == "<")
-    )))
-
-    def track(
-            grid,
-            pos: Pos,
-            dir: Pos
-    ) -> Iterator[tuple[Pos, Pos]]:
-        rows, cols = map(range, grid.shape)
-        while True:
-            yield pos, dir
-            while True:
-                nextpos = pos + dir
-                if not (nextpos.r in rows and nextpos.c in cols):
-                    return
-                if grid[nextpos] not in "#O":
-                    break
-                dir = right_turn[dir]
-            pos = pos + dir
-
-    def cycle(path: Iterable[tuple[Pos, Pos]]) -> bool:
-        visited = set()
-        for state in path:
-            if state in visited:
-                return True
-            visited.add(state)
-        return False
-
-    dir = dir_to_pos[grid[guard]]
-    grid[guard] = "."
-
-    locations: set[Pos] = set()
-    possible_obstacles = [
-        pos 
-        for pos, _
-        in track(grid.copy(), guard, dir)
-    ]
-    for i, pos in enumerate(possible_obstacles[1:]):
-        if i % 1000 == 0:
-            print(f"{i}: {len(locations)}")
-        assert (grid != "O").all() 
-        grid[pos] = "O"
-        if cycle(track(grid, guard, dir)):
-            locations.add(pos)
-        grid[pos] = "."
-
-    if len(locations) < 20: 
-        print(f"{locations = }")
-    print(f"{len(locations) = }")
-
-def part2broken(filename):
-    print("******** PART 2 ********")
-    grid = read_input(filename)
-    # display(grid)
-
-    directions = {
-        "^": Pos(-1,  0),
-        ">": Pos( 0, +1),
-        "v": Pos(+1,  0),
-        "<": Pos( 0, -1),
-    }
-
-    right_turn = {
-        Pos(-1,  0): Pos( 0, +1),
-        Pos( 0, +1): Pos(+1,  0),
-        Pos(+1,  0): Pos( 0, -1),
-        Pos( 0, -1): Pos(-1,  0),
-    }
-
-    guard = only(locate(
-        (grid == "^") |
-        (grid == ">") |
-        (grid == "v") |
-        (grid == "<")
-    ))
-
-    def turns(
-            pos: tuple[int, int],
-            dir: tuple[int, int]
-    ) -> Iterator[tuple[
-        Pos,
-        Pos
-    ]]:
-        rows, cols = map(range, grid.shape)
-        r, c = pos
-        dr, dc = dir
-
-        while True:
-            if not(r + dr in rows and c + dc in rows):
-                break
-            if grid[r + dr, c + dc] == "#":
-                dr, dc = right_turn[dr, dc]
-                yield Pos(r, c), Pos(dr, dc)
-            r, c = r + dr, c + dc
-
-    def dist(p1, p2) -> int: # mahattan distance
-        r1, c1 = p1
-        r2, c2 = p2
-        return abs(r1 - r2) + abs(c1 - c2)
-
-    dir = Pos(*directions[grid[guard]])
-    # print(f"{(guard, dir) = }")
-    grid[guard] = "." # guard symbol gets in the way later
-
-    def minmax[T](items: Iterable[T]) -> tuple[T, T]:
-        items = list(items)
-        return min(items), max(items)
-
-    def missing_corner(p1, p2, p3) -> tuple[int, int]:
-        minc, maxc = minmax(c for _, c in (p1, p2, p3))
-        minr, maxr = minmax(r for r, _ in (p1, p2, p3))
-
-        for c in [
-            (minr, minc),
-            (minr, maxc),
-            (maxr, minc),
-            (maxr, maxc),
-        ]:
-            if c not in (p1, p2, p3):
-                return Pos(c[0], c[1])
-            
-        raise ValueError("no missing corner?")
-
-    def advance(p1, target, dir):
-        r, c = p1
-        dr, dc = dir
-        while grid[r, c] == "." and (r, c) != target: 
-            r, c = r + dr,c + dc
-        if (r, c) != target:
-            r, c = r - dr, c - dc
-        return Pos(r, c)
-
-    locations = list(turns(guard, dir))
-    windows = list(window(locations, 3))
-    obstacles: list[Pos] = []
-
-    print(f"{len(locations), len(windows) = }")
-    # print(f"{locations = }")
-    # print(f"{windows = }")
-    for i, ((p1, d1), (p2, d2), (p3, d3)) in enumerate(windows):
-        print(f"*** {i}:points {p1} {p2} {p3}...")
-
-        for i in range(5):
-            print("... pass ",i)
-            g2 = grid.copy()
-            g2[p1] = '1'
-            g2[p2] = '2'
-            g2[p3] = '3'
-            # display(g2)
-
-            corner = missing_corner(p1, p2, p3)
-            reachable = advance(p3, corner, d3)
-
-            # print(f"... ... missing corner {corner}")
-            # print(f"... ... stopped at {reachable}")
-
-            g2[corner] = '*'
-            g2[reachable] = 'R'
-            display(g2)
-
-            if reachable == corner and grid[reachable + d3] == ".":
-                o = reachable + d3
-                if o not in obstacles:
-                    obstacles.append(reachable + d3)
-                print(f"... POSSIBLE! {o}")
-                break
-
-            p1, p2, p3 = p2, p3, reachable
-            d3 = right_turn[d3]
-
-    print(obstacles)
-    
 def main():
     dispatch = {
         "1": part1, 
