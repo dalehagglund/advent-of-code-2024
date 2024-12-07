@@ -43,7 +43,8 @@ from itertools import (
 
 from typing import (
     Any,
-    Callable, 
+    Callable,
+    Generator, 
     Iterable, 
     Iterator,
     Literal, 
@@ -287,7 +288,61 @@ def read_input(
         )
         return list(s)
 
-def solvable(target, operands, position, part2, lastop=None, depth=0) -> bool:
+def iter_solvable(target, operands, dummy, part2) -> bool:
+    def gen():
+        target, position = (yield)
+        if position == 0:
+            yield ("return", target == operands[position])
+            return
+        
+        quot, rem = divmod(target, operands[position])
+        if rem == 0 and (yield ("recur", quot, position-1)):
+            yield ("return", True)
+            return
+        
+        reduced = target - operands[position]
+        if reduced >= 0 and (yield ("recur", reduced, position-1)):
+            yield ("return", True)
+            return
+        
+        suffix, t = str(operands[position]), str(target)
+        if (
+            part2
+            and t.endswith(suffix)
+            and len(prefix := t[:-len(suffix)]) > 0
+            and (yield ("recur", int(prefix), position-1))
+        ):
+            yield ("return", True)
+            return
+        
+        yield ("return", False)
+
+    @dataclass
+    class Task:
+        gen: Generator
+        sendval: Any
+
+    def new():
+        g = gen()
+        next(g)
+        return g
+
+
+    stack: list[Task] = []
+    stack.append(Task(new(), (target, len(operands) - 1)))
+    while True:
+        task = stack[-1]
+        action, *response = task.gen.send(task.sendval)
+        if action == "recur":
+            stack.append(Task(new(), response))
+            continue
+        stack.pop()
+        task.gen.close()
+        if len(stack) == 0:
+            return response[0]
+        stack[-1].sendval = response[0]
+
+def recur_solvable(target, operands, position, part2) -> bool:
     if position == 0:
         return target == operands[position]
     
@@ -295,19 +350,15 @@ def solvable(target, operands, position, part2, lastop=None, depth=0) -> bool:
         operands=operands,
         position=position-1,
         part2=part2,
-        depth=depth+1
     )
     
     quot, rem = divmod(target, operands[position])
-    if rem == 0 and solvable(quot, lastop="*", **args):
+    if rem == 0 and recur_solvable(quot, **args):
         return True
     
     reduced = target - operands[position]
-    if reduced >= 0 and solvable(reduced, lastop="+", **args):
+    if reduced >= 0 and recur_solvable(reduced, **args):
         return True
-    
-    if not part2:
-        return False
     
     # I found understanding this just a bit tricky: we want to find
     # some prefix such that _prefix || operand_ is equal to _target_.
@@ -320,9 +371,10 @@ def solvable(target, operands, position, part2, lastop=None, depth=0) -> bool:
     # of the prefix
     suffix, t = str(operands[position]), str(target)
     if (
-        t.endswith(suffix)                       # target ends with operand
-        and len(prefix := t[:-len(suffix)]) > 0  # with a non-empty prefix
-        and solvable(int(prefix), lastop="||", **args)
+        part2
+        and t.endswith(suffix)
+        and len(prefix := t[:-len(suffix)]) > 0
+        and recur_solvable(int(prefix), **args)
     ):
         return True
     
@@ -336,7 +388,7 @@ def part1(filename, part2=False):
     calibration = 0
     for i, (result, operands) in enumerate(equations):
         assert len(operands) >= 2
-        if solvable(result, operands, len(operands) - 1, part2=part2):
+        if iter_solvable(result, operands, len(operands) - 1, part2=part2):
             calibration += result
     
     print(calibration)
