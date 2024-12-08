@@ -15,8 +15,7 @@ def astar[T](
         est_remaining: Callable[[T, T], int] = lambda n1, n2: 0,
         verbose: int = 0,
         statsevery: int = 500,
-    ):
-
+):
     seen: set[T] = set()
     dist: defaultdict[T, float | int] = defaultdict(lambda: float('inf'))
     prev: defaultdict[T, T | None] = defaultdict(lambda: None)
