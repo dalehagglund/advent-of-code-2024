@@ -179,26 +179,23 @@ def part1(filename, resonance=False):
     grid = read_input(filename)
     rows, cols = map(range, grid.shape)
 
-    display(grid)
-    print(rows, cols)
+    # display(grid)
+    # print(rows, cols)
 
     all_locations: set[tuple[int, int]] = set()
-    all_antennas: set[tuple[int, int]] = set()
     antenna_types: defaultdict[str, set[tuple[int, int]]] = defaultdict(set)
 
     for r, c in product(rows, cols):
         all_locations.add((r, c))
         ch = grid[r, c]
         if ch != ".":
-            all_antennas.add((r, c))
             antenna_types[ch].add((r, c))
 
-    print(f"{antenna_types = }")
-    print(f"{all_antennas = }")
+    # print(f"{antenna_types = }")
 
     nodes: set[tuple[int, int]] = set()
     for ch, locs in antenna_types.items():
-        print(f"... {ch}: {locs}")
+        # print(f"... {ch}: {locs}")
         for p1, p2 in combinations(locs, r=2):
             p1r, p1c = p1
             p2r, p2c = p2
@@ -212,23 +209,10 @@ def part1(filename, resonance=False):
             
             for start, step in [(p2, +1), (p1, -1)]:
                 s = [step] if not resonance else count(0, step)
-                s = observe(partial(print, "i: "), s)
                 s = map(partial(move, start, (dr,dc)), s)
-                s = observe(partial(print, "node: "), s)
                 s = takewhile(star(inbounds), s)
                 nodes.update(s)
-            # n1 = p2r + dr, p2c + dc
-            # n2 = p1r - dr, p1c - dc
-            # if n1 in all_locations:
-            #     nodes.add(n1)
-            # if n2 in all_locations:
-            #     nodes.add(n2)
 
-    # print(nodes)
-    # for node in nodes: 
-    #     assert grid[node] == ".", node
-    #     grid[node] = "#"
-    # display(grid)
     print(len(nodes))
 
 def part2(filename):
