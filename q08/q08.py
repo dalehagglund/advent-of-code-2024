@@ -114,7 +114,7 @@ from aoc.itertools import (
     split,
 )
 
-def locate(g):
+def locate(g) -> Iterator[tuple[int, int]]:
     # return non-zero locations in g in a more useful form for 
     # my python code. shoudl probably be called with an array resulting
     # from a boolean operation of some sort.
@@ -165,7 +165,7 @@ def follow_ray(g, start, dir):
 
 def read_input(
         filename: str
-):
+) -> np.ndarray[tuple[int, int], Any]:
     with open(filename) as f:
         s = f.readlines()
         s = map(str.rstrip, s)
@@ -177,40 +177,31 @@ def read_input(
         
 def part1(filename, resonance=False):
     grid = read_input(filename)
-    rows, cols = map(range, grid.shape)
 
-    # display(grid)
-    # print(rows, cols)
-
-    all_locations: set[tuple[int, int]] = set()
-    antenna_types: defaultdict[str, set[tuple[int, int]]] = defaultdict(set)
-
-    for r, c in product(rows, cols):
-        all_locations.add((r, c))
-        ch = grid[r, c]
-        if ch != ".":
-            antenna_types[ch].add((r, c))
-
-    # print(f"{antenna_types = }")
-
+    antenna_types: set[str] = set(
+        grid[r, c]
+        for r, c
+        in locate(grid != ".")
+    )
+    antenna_locations = {
+        ch: set(locate(grid == ch)) for ch in antenna_types
+    }
+    
     nodes: set[tuple[int, int]] = set()
-    for ch, locs in antenna_types.items():
+    for ch, locs in antenna_locations.items():
         # print(f"... {ch}: {locs}")
-        for p1, p2 in combinations(locs, r=2):
-            p1r, p1c = p1
-            p2r, p2c = p2
-            dr, dc = p2r - p1r, p2c - p1c
-
-            def inbounds(r, c): return (r, c) in all_locations
-            def move(p, dir, i):
-                r, c = p
-                dr, dc = dir
-                return (r + i * dr, c + i * dc)
+        for p1, p2 in map(np.array, combinations(locs, r=2)):
+            dir = p2 - p1
+            def inbounds(point):
+                return (((0, 0) <= point) & (point < grid.shape)).all()
+            def antinode(p, i):
+                return p + i * dir
             
             for start, step in [(p2, +1), (p1, -1)]:
                 s = [step] if not resonance else count(0, step)
-                s = map(partial(move, start, (dr,dc)), s)
-                s = takewhile(star(inbounds), s)
+                s = map(partial(antinode, start), s)
+                s = takewhile(inbounds, s)
+                s = map(tuple, s)
                 nodes.update(s)
 
     print(len(nodes))
@@ -250,19 +241,17 @@ def main(args):
     if len(args) == 0:
         usage("missing input file")
         
-    if run1:
-        for infile in args:
-            print(f"\n***** START PART 1 ({infile})")
-            with timer() as t:
-                parts[1](infile)
-            print(f"***** FINISHED PART 1 ({infile}) {t.elapsed()}s")
-
-    if run2:
-        for infile in args:
-            print(f"\n*** PART 2 ({infile})")
-            with timer() as t:
-                parts[2](infile)
-            print(f"*** FINISHED PART 2 ({infile}) {t.elapsed()}s")
+    to_run = [ 
+        i 
+        for i, flag 
+        in enumerate([run1, run2], start=1)
+        if flag 
+    ]
+    for infile, part in product(args, to_run):
+        print(f"\n***** START PART {part} ({infile})")
+        with timer() as t:
+            parts[part](infile)
+        print(f"***** FINISHED PART {part} ({infile}) {t.elapsed()}s")
 
 if __name__ == '__main__':
     main(sys.argv[1:])
