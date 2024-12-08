@@ -168,9 +168,54 @@ def read_input(
 ):
     with open(filename) as f:
         s = f.readlines()
+        s = map(str.rstrip, s)
+        s = map(list, s)
+        return np.array(
+            list(s),
+            dtype=np.dtypes.StringDType
+        )
         
-def part1(filename, part2=False):
-    pass
+def part1(filename):
+    grid = read_input(filename)
+    rows, cols = map(range, grid.shape)
+
+    display(grid)
+    print(rows, cols)
+
+    all_locations: set[tuple[int, int]] = set()
+    all_antennas: set[tuple[int, int]] = set()
+    antenna_types: defaultdict[str, set[tuple[int, int]]] = defaultdict(set)
+
+    for r, c in product(rows, cols):
+        all_locations.add((r, c))
+        ch = grid[r, c]
+        if ch != ".":
+            all_antennas.add((r, c))
+            antenna_types[ch].add((r, c))
+
+    print(f"{antenna_types = }")
+    print(f"{all_antennas = }")
+
+    nodes: set[tuple[int, int]] = set()
+    for ch, locs in antenna_types.items():
+        print(f"... {ch}: {locs}")
+        for (p1r, p1c), (p2r, p2c) in combinations(locs, r=2):
+            dr, dc = p2r - p1r, p2c - p1c
+            n1 = p2r + dr, p2c + dc
+            n2 = p1r - dr, p1c - dc
+
+            print(f"... ... {(p1r, p1c), (p2r, p2c)} -> {n1, n2}")
+            if n1 in all_locations:
+                nodes.add(n1)
+            if n2 in all_locations:
+                nodes.add(n2)
+
+    print(nodes)
+    # for node in nodes: 
+    #     assert grid[node] == ".", node
+    #     grid[node] = "#"
+    # display(grid)
+    print(len(nodes))
 
 def part2(filename):
     pass
@@ -182,7 +227,7 @@ def usage(message):
 
 parts = {
     1: part1, 
-    2: partial(part1, part2=True),
+    2: part2,
 }
 
 options = {
