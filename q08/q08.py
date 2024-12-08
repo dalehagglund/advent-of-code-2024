@@ -175,7 +175,7 @@ def read_input(
             dtype=np.dtypes.StringDType
         )
         
-def part1(filename):
+def part1(filename, resonance=False):
     grid = read_input(filename)
     rows, cols = map(range, grid.shape)
 
@@ -199,18 +199,32 @@ def part1(filename):
     nodes: set[tuple[int, int]] = set()
     for ch, locs in antenna_types.items():
         print(f"... {ch}: {locs}")
-        for (p1r, p1c), (p2r, p2c) in combinations(locs, r=2):
+        for p1, p2 in combinations(locs, r=2):
+            p1r, p1c = p1
+            p2r, p2c = p2
             dr, dc = p2r - p1r, p2c - p1c
-            n1 = p2r + dr, p2c + dc
-            n2 = p1r - dr, p1c - dc
 
-            print(f"... ... {(p1r, p1c), (p2r, p2c)} -> {n1, n2}")
-            if n1 in all_locations:
-                nodes.add(n1)
-            if n2 in all_locations:
-                nodes.add(n2)
+            def inbounds(r, c): return (r, c) in all_locations
+            def move(p, dir, i):
+                r, c = p
+                dr, dc = dir
+                return (r + i * dr, c + i * dc)
+            
+            for start, step in [(p2, +1), (p1, -1)]:
+                s = [step] if not resonance else count(0, step)
+                s = observe(partial(print, "i: "), s)
+                s = map(partial(move, start, (dr,dc)), s)
+                s = observe(partial(print, "node: "), s)
+                s = takewhile(star(inbounds), s)
+                nodes.update(s)
+            # n1 = p2r + dr, p2c + dc
+            # n2 = p1r - dr, p1c - dc
+            # if n1 in all_locations:
+            #     nodes.add(n1)
+            # if n2 in all_locations:
+            #     nodes.add(n2)
 
-    print(nodes)
+    # print(nodes)
     # for node in nodes: 
     #     assert grid[node] == ".", node
     #     grid[node] = "#"
@@ -227,7 +241,7 @@ def usage(message):
 
 parts = {
     1: part1, 
-    2: part2,
+    2: partial(part1, resonance=True),
 }
 
 options = {
