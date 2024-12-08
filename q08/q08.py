@@ -38,7 +38,7 @@ from itertools import (
     product, 
     repeat, 
     takewhile,
-    tee
+    tee,
 )
 
 from typing import (
@@ -153,7 +153,7 @@ def part1(filename, resonance=False):
     nodes: set[tuple[int, int]] = set()
     for ch, locs in antenna_locations.items():
         # print(f"... {ch}: {locs}")
-        for p1, p2 in map(np.array, combinations(locs, r=2)):
+        for p1, p2 in map(partial(map, np.array), combinations(locs, r=2)):
             dir = p2 - p1
             def inbounds(point):
                 return (((0, 0) <= point) & (point < grid.shape)).all()
@@ -186,19 +186,15 @@ options = {
 }
 
 def main(args):
+    from aoc.cmd import argscan
     infile = None
     run1 = run2 = False
-    
-    while args and args[0].startswith('-'):
-        arg = args.pop(0)
-        if arg in ('--'): break
-        elif re.match(r'^-[A-Za-z0-9]{2,}$', arg):
-            args[:0] = list(map(partial(operator.add, '-'), arg[1:]))
-        elif arg in ('-1'): run1 = True
-        elif arg in ('-2'): run2 = True
-        else:
-            usage(f'{arg}: unexpected option')
 
+    for flag in argscan(args):
+        if flag in ('-1'): run1 = True
+        elif flag in ('-2'): run2 = True
+        else:
+            usage(f"{flag}: unexpected option")
     if not (run1 or run2): run1 = run2 = True
 
     if len(args) == 0:
