@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import heapq
@@ -66,6 +67,8 @@ from hypothesis import (
     strategies as st
 )
 
+from aoc.perf import timer
+
 from aoc.itertools import (
     star,
     nth,
@@ -105,12 +108,13 @@ def to_image(lengths: list[int]) -> list[int]:
     s = chain.from_iterable(s)
     return list(s)
 
-def gaps_around(
+def adjacent_gaps(
         gaps: list[range], 
         frange: range
 ) -> tuple[ int | None, int | None ]:
-    before = bisect_right(gaps, frange.start, key=lambda r: r.stop) - 1
-    after = bisect_left(gaps, frange.stop, key=lambda r: r.start)
+    key = lambda r: r.stop
+    before = bisect_right(gaps, frange.start, key=key) - 1
+    after = bisect_left(gaps, frange.stop, key=key)
 
     if before == -1 or gaps[before].stop < frange.start:
         before = None
@@ -129,7 +133,7 @@ def gaps_around(
     ]
 )
 def test_free_around(frange, expected, gaps):
-    assert expected == gaps_around(gaps, frange)
+    assert expected == adjacent_gaps(gaps, frange)
 
 def find_first_fit(
         frange: range,
@@ -139,6 +143,34 @@ def find_first_fit(
         if len(grange) >= len(frange):
             return gno
     return None
+
+def coalesce_around(
+        r: range,
+        gaps: list[range]
+):
+    left, right = adjacent_gaps(gaps, r)
+    if   left is None     and right is None:
+        pass
+    elif left is None     and right is not None:
+        gaps[right] = range(r.start, gaps[right].stop)
+    elif left is not None and right is None:
+        gaps[left] = range(gaps[left].start, r.stop)
+    elif left is not None and right is not None:
+        gaps[left: right+1] = [
+            range(gaps[left].start, gaps[right].stop)
+        ]
+
+def copy_blocks(
+        image: list[int],
+        fill: int,
+        fold: range,
+        fnew: range
+):
+    image[fnew.start: fnew.stop] = [fill] * len(fnew)        
+    image[fold.start: fold.stop] = [-1]   * len(fold)
+
+def trim_left(gap, removed):
+    return range(gap.start + removed, gap.stop)
 
 def defrag_firstfit(
         image: list[int], 
@@ -151,56 +183,31 @@ def defrag_firstfit(
             "." if val == -1 else str(val)
             for val in image
         )
+    
     if short: print(image_str())
     for fno in reversed(range(len(files))):
         fold = files[fno]
         if short: print(f"... considering file {fno}: {fold = } {len(gaps) = }")
+
         gno = find_first_fit(fold, gaps)
         if gno is None:
             continue 
+
         gap = gaps[gno] 
-        assert len(gap) >= len(fold)
         if short: print(f"... found gap {gno}: {gap}")
         if gap.start >= fold.stop:
-            if short: print(f"... past file: skipping")
+            if short: print(f"... gap to the right of file: skipping")
             continue
         
         fnew = range(gap.start, gap.start + len(fold))
-        assert len(fold) == len(fnew)
-
-        # copy the data in the image, "clearing" the old location
-        image[fnew.start: fnew.stop] = [fno] * len(fnew)        
-        image[fold.start: fold.stop] = [-1]  * len(fold)
+        copy_blocks(image, fno, fold, fnew)
         
-        # not really needed for the puzzle, but whatever
         files[fno] = fnew
-
-        # delete the gap we just copied the file to if we used it
-        # completely, or shrink it appropriately.
-        if len(fnew) == len(gap):
+        gaps[gno] = trim_left(gap, len(fnew))
+        if len(gaps[gno]) == 0:
             del gaps[gno]
-        else:
-            gaps[gno] = range(gap.start + len(fnew), gap.stop)
-            assert len(gaps[gno]) >= 1
-            assert len(gaps[gno]) + len(fnew) == len(gap)
-
-        # check for free blocks created in the neighbourhood of the
-        # original file position. note that this has to happen *after* deleting or adjusting the
-        # free block above.
-        
-        before, after = gaps_around(gaps, fold)
-        if   before is None     and after is None:
-            pass
-        elif before is None     and after is not None:
-            gaps[after] = range(fold.start, gaps[after].stop)
-        elif before is not None and after is None:
-            gaps[before] = range(gaps[before].start, fold.stop)
-        elif before is not None and after is not None:
-            assert after == before + 1
-            gaps[before: after+1] = [
-                range(gaps[before].start, gaps[after].stop)
-            ]
-
+            
+        coalesce_around(fold, gaps)
         if short: print(image_str())
 
 def defrag_dense(image, short, files, gaps):
@@ -237,6 +244,8 @@ def part1(filename, defrag):
         encoded,
         interleave(count(), repeat(-1))
     ):
+        if n == 0:
+            continue
         if fill != -1:
             files.append(range(o, o+n))
         else:
@@ -245,16 +254,18 @@ def part1(filename, defrag):
     if short: print(f"{files = }")
     if short: print(f"{gaps  = }")
 
-    print(f"{len(files) = }")
-    print(f"{len(gaps) = }")
+    print(f"{len(files) = } zeros = {sum(len(f) == 0 for f in files)}")
+    print(f"{len(gaps) = } zeros = {sum(len(g) == 0 for g in gaps)}")
 
-    defrag(image, short, files, gaps)
-
-    checksum = sum(
-        i * fileno
-        for i, fileno in enumerate(image)
-        if fileno != -1
-    )
+    with timer() as dtime:
+        defrag(image, short, files, gaps)
+    with timer() as cktime:
+        checksum = sum(
+            i * fileno
+            for i, fileno in enumerate(image)
+            if fileno != -1
+        )
+    print(f"{(dtime.elapsed(), cktime.elapsed()) = }")
     print(checksum)
 
 def part2(filename):
