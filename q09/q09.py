@@ -25,6 +25,7 @@ from functools import partial
 
 import itertools
 from itertools import (
+    accumulate,
     batched, 
     chain, 
     combinations, 
@@ -76,6 +77,8 @@ from aoc.itertools import (
     split,
 )
 
+import numpy as np
+import numpy.typing as npt
 from aoc.np import (
     locate,
     display,
@@ -84,12 +87,76 @@ from aoc.np import (
 
 def read_input(
         filename: str
-) -> Any:
+) -> str:
     with open(filename) as f:
         s = f.readlines()
+        return s[0].rstrip()
         
-def part1(filename, resonance=False):
-    pass
+def to_image(lengths: list[int]) -> list[int]:
+    s = zip(
+        lengths,
+        interleave(count(), repeat(-1))
+    )
+    # s = observe(partial(print, "#1:"), s)
+    s = map(star(lambda n, value: [value] * n), s)
+    # s = observe(partial(print, "#2:"), s)
+    s = chain.from_iterable(s)
+    return list(s)
+
+def defrag(image, short, files, gaps):
+    moveto = chain.from_iterable(gaps)
+    movefrom = chain.from_iterable(map(reversed, reversed(files)))
+
+    if short: print(image)
+    for f, t in zip(movefrom, moveto):
+        if f < t:
+            break
+        if short: print(f"    {f, t = }")
+        if short: print(f"    {image[f], image[t] = }")
+        assert image[t] == -1
+        image[t] = image[f]
+        image[f] = -1
+        if short: print(image)
+
+def part1(filename):
+    encoded = list(map(int, read_input(filename)))
+    # print(encoded)
+
+    if len(encoded) < 50: print(f"{encoded =}")
+    print(f"{len(encoded) = }")
+    image = to_image(encoded)
+    short = len(image) < 30
+    if short: 
+        print(f"{image = }")
+    else:
+        print(f"{len(image) = }")
+
+    files: list[range] = []
+    gaps: list[range] = []
+    o = 0
+    for n, fill in zip(
+        encoded,
+        interleave(count(), repeat(-1))
+    ):
+        if fill != -1:
+            files.append(range(o, o+n))
+        else:
+            gaps.append(range(o, o+n))
+        o += n
+    if short: print(f"{files = }")
+    if short: print(f"{gaps  = }")
+
+    print(f"{len(files) = }")
+    print(f"{len(gaps) = }")
+
+    defrag(image, short, files, gaps)
+
+    checksum = sum(
+        i * fileno
+        for i, fileno in enumerate(image)
+        if fileno != -1
+    )
+    print(checksum)
 
 def part2(filename):
     pass
@@ -101,13 +168,14 @@ def usage(message):
 
 parts = {
     1: part1, 
-    2: partial(part1, resonance=True),
+    2: part2,
 }
 
 options = {
 }
 
 def main(args):
+
     from aoc.cmd import argscan
     from aoc.perf import timer
     infile = None
