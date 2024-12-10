@@ -47,7 +47,7 @@ def argscan(args: list[str]) -> Iterator[str]:
     is also free to consume one or more arguments when argscan exits,
     and re-invoke it to find more arguments, but this is not an
     expected use case.
-    
+
     WARNING: This routine strips option flags from the front of `args`
     as it yields them, and so the client must be able to inspect the
     modified `args` to extract any arguments associated with the flag.
@@ -68,6 +68,6 @@ def argscan(args: list[str]) -> Iterator[str]:
         if arg in ('--'):
             break
         elif re.match(r'^-[A-Za-z0-9]{2,}$', arg):
-            args[:0] = list(map(partial(operator.add, '-'), arg[1:]))
+            args[:0] = [ '-' + ch for ch in arg[1:] ]
         else:
             yield arg
