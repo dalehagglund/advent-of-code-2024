@@ -1,6 +1,7 @@
 from itertools import count
 from typing import (
     Callable,
+    Iterable,
     Iterator
 )
 from collections import defaultdict
@@ -8,10 +9,10 @@ import heapq
 import functools
 
 def astar[T](
-        start: T, 
-        end: T | None, 
-        neighbours: Callable[[T], Iterator[T]], 
-        edge_cost: Callable[[T, T], int] = lambda n1, n2: 1, 
+        start: T,
+        end: T | None,
+        neighbours: Callable[[T], Iterator[T]],
+        edge_cost: Callable[[T, T], int] = lambda n1, n2: 1,
         est_remaining: Callable[[T, T], int] = lambda n1, n2: 0,
         verbose: int = 0,
         statsevery: int = 500,
@@ -55,7 +56,7 @@ def astar[T](
 
         if node in seen:
             rescans += 1
-        
+
         loops += 1
         if verbose > 0 and loops % statsevery == 0:
             display_stats()
@@ -76,3 +77,20 @@ def astar[T](
     verbose > 1 and print("after search")
     display_stats()
     return dist, prev
+
+def allpaths[T](
+        path: list[T],
+        nodes: set[T],
+        neighbours: Callable[[T], Iterable[T]],
+        keep: Callable[[list[T]], bool] = lambda path: True,
+) -> Iterator[list[T]]:
+    if keep(path):
+        yield path.copy()
+    for n in neighbours(path[-1]):
+        if n in nodes:
+            continue
+        path.append(n)
+        nodes.add(n)
+        yield from allpaths(path, nodes, neighbours, keep)
+        nodes.remove(n)
+        path.pop()
