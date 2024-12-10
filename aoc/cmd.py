@@ -71,3 +71,32 @@ def argscan(args: list[str]) -> Iterator[str]:
             args[:0] = [ '-' + ch for ch in arg[1:] ]
         else:
             yield arg
+
+import pytest
+
+@pytest.mark.parametrize(
+    "args,expected_flags,remaining_args",
+    # to save a lot of extra typing here, the
+    # strings below are split on whitespace.
+    [
+        ("-a", "-a", None),
+        ("-ab", "-a -b", None),
+        ("-a --xyzzy", "-a --xyzzy", None),
+        ("-a -b -- -x foo bar -y", "-a -b", "-x foo bar -y"),
+        ("-n 3 -x -y", "-n", "3 -x -y"),
+        ("-x -y", "-x -y", ""),
+    ]
+)
+def test_argscan(args, expected_flags, remaining_args):
+    args = args.split()
+    expected_flags = expected_flags.split()
+
+    flags = list(argscan(args))
+    assert flags == expected_flags
+
+    if remaining_args is None:
+        return
+
+    if isinstance(remaining_args, str):
+        remaining_args = remaining_args.split()
+    assert args == remaining_args
