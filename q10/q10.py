@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aoc.search import astar
+from aoc.search import astar, allpaths
 
 import heapq
 import math
@@ -103,7 +103,6 @@ def read_input(
 
 def part1(filename, all=False):
     grid = read_input(filename)
-    display(grid)
     nrow, ncol = grid.shape
 
     trailheads = list(locate(grid == "0"))
@@ -115,7 +114,7 @@ def part1(filename, all=False):
         if grid[loc] != "."
     }
 
-    def neighbours(pos):
+    def neighbours(pos: tuple[int, int]) -> Iterable[tuple[int, int]]:
         r, c = pos
         for dr, dc in [
             (+1,  0),
@@ -130,22 +129,15 @@ def part1(filename, all=False):
                 continue
             yield (nr, nc)
 
-    def allpaths(path: list, nodes: set):
-        if grid[path[-1]] == "9": yield path.copy()
-        for n in neighbours(path[-1]):
-            if n in nodes: continue
-            path.append(n)
-            nodes.add(n)
-            yield from allpaths(path, nodes)
-            nodes.remove(n)
-            path.pop()
-
     if all:
+        def keep(path: list[tuple[int, int]]) -> bool:
+            return path[-1] in endpoints
         rating = 0
         for start in trailheads:
-            paths = list(allpaths([start], {start}))
-            print(f"... trail {start} rating {len(paths)}")
-            rating += len(paths)
+            npaths = sum(
+                map(bool, allpaths([start], {start}, neighbours, keep))
+            )
+            rating += npaths
         print("rating", rating)
         return
 
