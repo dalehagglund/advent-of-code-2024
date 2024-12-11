@@ -116,15 +116,12 @@ def expand_fast(counts: Counter[int]) -> Counter[int]:
             new_counts[new] += scount
     return new_counts
 
-def part1(filename, count=25):
+def part1(filename, expansions=25):
     stones = read_input(filename)
-    print(stones)
-
-    stone_counts = Counter(stones)
-    for i in range(count):
-        stone_counts = expand_fast(stone_counts)
-        # print(f"{i}: {stone_counts.total() = }")
-    print(stone_counts.total())
+    counts = Counter(stones)
+    for i in range(expansions):
+        counts = expand_fast(counts)
+    print(counts.total())
 
 def part2(filename):
     pass
@@ -136,7 +133,7 @@ def usage(message):
 
 parts = {
     1: part1,
-    2: partial(part1, count=75),
+    2: partial(part1, expansions=75),
 }
 
 options = {
