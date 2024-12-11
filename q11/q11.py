@@ -98,12 +98,6 @@ def read_input(
         s = f.readlines()[0].rstrip().split()
         return list(map(int, s))
 
-        s = map(str.rstrip, s)
-        s = map(str.split, s)
-        s = map(partial(map, int), s)
-        s = map(list, s)
-        return s
-
 def update_stone(n: int) -> list[int]:
     assert isinstance(n, int), n
     nstr = str(n)
@@ -115,19 +109,12 @@ def update_stone(n: int) -> list[int]:
     else:
         return [ n * 2024 ]
 
-def update_stones(stones: list[int]) -> list[int]:
-    new_stones: list[int] = []
-    for s in stones:
-        new_stones.extend(update_stone(s))
-    return new_stones
-
 def expand_fast(counts: Counter[int]) -> Counter[int]:
     new_counts = Counter()
     for s, scount in counts.items():
         for new in update_stone(s):
             new_counts[new] += scount
     return new_counts
-
 
 def part1(filename, count=25):
     stones = read_input(filename)
@@ -136,7 +123,7 @@ def part1(filename, count=25):
     stone_counts = Counter(stones)
     for i in range(count):
         stone_counts = expand_fast(stone_counts)
-        print(f"{i}: {stone_counts.total() = }")
+        # print(f"{i}: {stone_counts.total() = }")
     print(stone_counts.total())
 
 def part2(filename):
