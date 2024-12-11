@@ -93,12 +93,51 @@ from aoc.np import (
 
 def read_input(
         filename: str
-) -> Any:
+) -> list[int]:
     with open(filename) as f:
-        ...
+        s = f.readlines()[0].rstrip().split()
+        return list(map(int, s))
 
-def part1(filename):
-    pass
+        s = map(str.rstrip, s)
+        s = map(str.split, s)
+        s = map(partial(map, int), s)
+        s = map(list, s)
+        return s
+
+def update_stone(n: int) -> list[int]:
+    assert isinstance(n, int), n
+    nstr = str(n)
+    if n == 0:
+        return [ 1 ]
+    elif len(nstr) % 2 == 0:
+        mid = len(nstr) // 2
+        return [ int(nstr[:mid]), int(nstr[mid:]) ]
+    else:
+        return [ n * 2024 ]
+
+def update_stones(stones: list[int]) -> list[int]:
+    new_stones: list[int] = []
+    for s in stones:
+        new_stones.extend(update_stone(s))
+    return new_stones
+
+def expand_fast(counts: Counter[int]) -> Counter[int]:
+    new_counts = Counter()
+    for s, scount in counts.items():
+        for new in update_stone(s):
+            new_counts[new] += scount
+    return new_counts
+
+
+def part1(filename, count=25):
+    stones = read_input(filename)
+    print(stones)
+
+    stone_counts = Counter(stones)
+    for i in range(count):
+        stone_counts = expand_fast(stone_counts)
+        print(f"{i}: {stone_counts.total() = }")
+    print(stone_counts.total())
 
 def part2(filename):
     pass
@@ -110,7 +149,7 @@ def usage(message):
 
 parts = {
     1: part1,
-    2: partial(part1, all=True),
+    2: partial(part1, count=75),
 }
 
 options = {
