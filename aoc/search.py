@@ -1,22 +1,86 @@
-from itertools import count
+import collections
+import contextlib
+from itertools import chain, count, cycle, product
 from typing import (
     Callable,
     Iterable,
-    Iterator
+    Iterator,
+    assert_never
 )
-from collections import defaultdict
+from collections import Counter, defaultdict
+from functools import partial
+
 import heapq
 import functools
+
+type Neighbours[T] = Callable[[T], Iterable[T]]
+
+def topsort[T](
+        nodes: set[T],
+        neighbours: Neighbours[T]
+) -> Iterator[T]:
+    s = iter(nodes)
+    s = map(neighbours, s)
+    s = chain.from_iterable(s)
+    indeg = Counter(s)
+
+    zeros = collections.deque(n for n, c in indeg.items() if c == 0)
+    while zeros:
+        u = zeros.popleft()
+        assert indeg[u] == 0
+        del indeg[u]
+        yield u
+
+        for v in neighbours(u):
+            if indeg[v] == 0:
+                continue
+            indeg[v] -= 1
+            if indeg[v] == 0:
+                zeros.append(v)
+
+    if len(indeg) > 0:
+        raise ValueError("cycle detected")
+
+def bfs[T](
+        start: T,
+        end: T | None,
+        neighbours: Neighbours[T],
+        verbose: int = 0,
+        statsevery: int = 500
+):
+    return astar(
+        start, end, neighbours,
+        verbose=verbose, statsevery=statsevery
+    )
+
+def dijkstra[T](
+        start: T,
+        end: T | None,
+        neighbours: Neighbours[T],
+        edge_cost: Callable[[T, T], int] = lambda n1, n2: 1,
+        verbose: int = 0,
+        statsevery: int = 500
+):
+    return astar(
+        start, end, neighbours, edge_cost,
+        verbose=verbose, statsevery=statsevery
+    )
 
 def astar[T](
         start: T,
         end: T | None,
-        neighbours: Callable[[T], Iterator[T]],
-        edge_cost: Callable[[T, T], int] = lambda n1, n2: 1,
-        est_remaining: Callable[[T, T], int] = lambda n1, n2: 0,
+        neighbours: Neighbours[T],
+        edge_cost: Callable[[T, T], int] | None = None,
+        est_remaining: Callable[[T, T], int] | None = None,
         verbose: int = 0,
         statsevery: int = 500,
 ):
+    if end is None and est_remaining is not None:
+        raise ValueError("est_remaining not allowed if end is None")
+
+    if edge_cost is None: edge_cost = lambda n1, n2: 1
+    if est_remaining is None: est_remaining = lambda n1, n2: 0
+
     seen: set[T] = set()
     dist: defaultdict[T, float | int] = defaultdict(lambda: float('inf'))
     prev: defaultdict[T, T | None] = defaultdict(lambda: None)
@@ -26,7 +90,6 @@ def astar[T](
 
     q = []
     heapq.heapify(q)
-
     sequence = count(1)
     def push(item, prio):
         heapq.heappush(q, (prio, next(sequence), item))
@@ -36,7 +99,7 @@ def astar[T](
 
     loops, updates, rescans = 0, 0, 0
     def display_stats():
-        print(
+        if verbose: print(
             f"..."
             f" loops {loops}"
             f" updates {updates}"
@@ -78,6 +141,14 @@ def astar[T](
     display_stats()
     return dist, prev
 
+@contextlib.contextmanager
+def _around(before, after):
+    before()
+    try:
+        yield
+    finally:
+        after()
+
 def allpaths[T](
         path: list[T],
         nodes: set[T],
@@ -89,8 +160,8 @@ def allpaths[T](
     for n in neighbours(path[-1]):
         if n in nodes:
             continue
-        path.append(n)
-        nodes.add(n)
-        yield from allpaths(path, nodes, neighbours, keep)
-        nodes.remove(n)
-        path.pop()
+        with (
+            _around(partial(path.append, n), path.pop),
+            _around(partial(nodes.add, n), nodes.remove)
+        ):
+            yield from allpaths(path, nodes, neighbours, keep)
