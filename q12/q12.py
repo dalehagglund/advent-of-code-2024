@@ -68,7 +68,7 @@ from hypothesis import (
     strategies as st
 )
 
-from aoc.search import astar, allpaths
+from aoc.search import astar, allpaths, bfs
 from aoc.perf import timer
 from aoc.itertools import (
     star,
@@ -93,12 +93,69 @@ from aoc.np import (
 
 def read_input(
         filename: str
-) -> list[int]:
+) -> np.ndarray:
     with open(filename) as f:
-        ...
+        s = f.readlines()
+        s = map(str.rstrip, s)
+        s = map(list, s)
+        return np.array(list(s), dtype=np.dtypes.StringDType)
 
 def part1(filename):
-    pass
+    grid = read_input(filename)
+    rows, cols = map(range, grid.shape)
+
+    display(grid)
+
+    nodes = set(product(rows, cols))
+    def neighbours(pos):
+        r, c = pos
+        plant = grid[r, c]
+        for dr, dc in [
+            (-1, 0),
+            (+1, 0),
+            (0, -1),
+            (0, +1)
+        ]:
+            nr, nc = r + dr, c + dc
+            if (nr, nc) not in nodes:
+                continue
+            if grid[nr, nc] != plant:
+                continue
+            yield (nr, nc)
+
+    all_plants = set(
+        grid[r, c] for r, c in product(rows, cols)
+    )
+    print(all_plants)
+
+    components = []
+    for plant in all_plants:
+        locs = set(locate(grid == plant))
+        while locs:
+            start = locs.pop()
+            distvec, _ = bfs(start, None, neighbours)
+            reached = set(
+                pos
+                for pos, dist
+                in distvec.items()
+                if dist != float('inf')
+            )
+
+            components.append((plant, reached))
+            locs -= reached
+
+    def perimeter(places):
+        perim = 0
+        for p in places:
+            perim += 4 - sum(1 for _ in neighbours(p))
+        return perim
+
+    fencing_cost = 0
+    for plant, places in components:
+        print(f"{plant} {perimeter(places) = }: {places}")
+        fencing_cost += len(places) * perimeter(places)
+    print(fencing_cost)
+
 
 def part2(filename):
     pass
@@ -113,35 +170,25 @@ parts = {
     2: part2,
 }
 
-options = {
-}
-
 def main(args):
     from aoc.cmd import argscan
     from aoc.perf import timer
-    infile = None
-    run1 = run2 = False
+    torun = set()
+    options = {}
 
     for flag in argscan(args):
-        if flag in ('-1'): run1 = True
-        elif flag in ('-2'): run2 = True
+        if flag in ('-1'): torun.add(1)
+        elif flag in ('-2'): torun.add(2)
         else:
             usage(f"{flag}: unexpected option")
-    if not (run1 or run2): run1 = run2 = True
+    if not torun: torun = {1, 2}
 
     if len(args) == 0:
         usage("missing input file")
-
-    to_run = [
-        i
-        for i, flag
-        in enumerate([run1, run2], start=1)
-        if flag
-    ]
-    for infile, part in product(args, to_run):
+    for infile, part in product(args, sorted(torun)):
         print(f"\n***** START PART {part} -- {infile}")
         with timer() as t:
-            parts[part](infile)
+            parts[part](infile, **options)
         print(f"***** FINISHED PART {part} -- {infile} elapsed {t.elapsed()}s")
 
 if __name__ == '__main__':
