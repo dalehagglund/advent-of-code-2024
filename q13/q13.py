@@ -124,9 +124,15 @@ def read_input(
     for blk in blocks:
         assert len(blk) == 3, blk
         a, b, p = blk
-        ax, ay = map(lambda t: int(t[1]), map(partial(str.split, sep="+"), a.split(": ")[1].split(", ")))
-        bx, by = map(lambda t: int(t[1]), map(partial(str.split, sep="+"), b.split(": ")[1].split(", ")))
-        px, py = map(lambda t: int(t[1]), map(partial(str.split, sep="="), p.split(": ")[1].split(", ")))
+        ax, ay = map(
+            lambda t: int(t[1]),
+            map(partial(str.split, sep="+"), a.split(": ")[1].split(", ")))
+        bx, by = map(
+            lambda t: int(t[1]),
+            map(partial(str.split, sep="+"), b.split(": ")[1].split(", ")))
+        px, py = map(
+            lambda t: int(t[1]),
+            map(partial(str.split, sep="="), p.split(": ")[1].split(", ")))
         if part2:
             px += 10000000000000
             py += 10000000000000
@@ -165,6 +171,37 @@ def solve_diophantine(a, b, c):
     y *= c // gcd
     return gcd, x, y
 
+def solve_int_2x2(
+        coeff: list[list[int]],
+        goal: list[int]
+) -> tuple[int, int] | None:
+    # We could still  easily do this with np.linalg.solve, except
+    # that you have to deal with floating point rounding error.
+    #
+    # But we know that our inputs are only integers, so we can take
+    # advantage of that to get precise results with no roundoff error.
+    # This equations in this code are those you get from using
+    # high-school algebra to solve a system of two variables, with the
+    # divisions deferred until the very end. Each division is checked
+    # for a non-zero remainder, and if one is found, we return None to
+    # indicate no integer result.
+    #
+    # other we return the precise integer quotients.
+
+    (a, b), (d, e) = coeff
+    c, f = goal
+
+    det = a*e - b*d
+    if det == 0:
+        return None
+
+    x0, r0 = divmod(c*e - b*f, det)
+    x1, r1 = divmod(a*f - c*d, det)
+    if r0 or r1:
+        return None
+
+    return x0, x1
+
 def part1(filename, part2=False):
     machines = read_input(filename, part2)
 
@@ -176,23 +213,20 @@ def part1(filename, part2=False):
     eps = 1e-4
 
     for (i, m) in enumerate(machines):
-        M = np.array([
-            [m.asteps.x, m.bsteps.x],
-            [m.asteps.y, m.bsteps.y]
-        ])
-        y = np.array([m.prize.x, m.prize.y])
-        # print("inputs: ", M, y)
-        na, nb = v = np.linalg.solve(M,y)
-
-        if abs(na - round(na)) > eps or abs(nb - round(nb)) > eps:
-            # print(f"ignoring {i}: ", v, na - round(na), nb - round(nb))
-            ignored += 1
+        result = solve_int_2x2(
+            [
+                [m.asteps.x, m.bsteps.x],
+                [m.asteps.y, m.bsteps.y],
+            ],
+            [m.prize.x, m.prize.y]
+        )
+        if result is None:
+            # no integer result, or a singular matrix.
             continue
-        na = round(na)
-        nb = round(nb)
+        na, nb = result
 
         # print(v, solution_cost(*v))
-        total_tokens += solution_cost(*v)
+        total_tokens += solution_cost(na, nb)
 
     print(f"{ignored = }")
     print(total_tokens)
