@@ -111,7 +111,8 @@ class Machine:
     prize: Pair
 
 def read_input(
-        filename: str
+        filename: str,
+        part2: bool
 ) -> list[Machine]:
     with open(filename) as f:
         s = iter(f)
@@ -126,6 +127,9 @@ def read_input(
         ax, ay = map(lambda t: int(t[1]), map(partial(str.split, sep="+"), a.split(": ")[1].split(", ")))
         bx, by = map(lambda t: int(t[1]), map(partial(str.split, sep="+"), b.split(": ")[1].split(", ")))
         px, py = map(lambda t: int(t[1]), map(partial(str.split, sep="="), p.split(": ")[1].split(", ")))
+        if part2:
+            px += 10000000000000
+            py += 10000000000000
         machines.append(Machine(
             Pair(ax, ay),
             Pair(bx, by),
@@ -162,28 +166,16 @@ def solve_diophantine(a, b, c):
     return gcd, x, y
 
 def part1(filename, part2=False):
-    machines = read_input(filename)
-
-    def solveable(m: Machine):
-        ax, ay = m.asteps
-        bx, by = m.bsteps
-        px, py = m.prize
-
-        return (
-            px % gcd(ax, bx) == 0 and
-            py % gcd(ay, by) == 0
-        )
+    machines = read_input(filename, part2)
 
     def solution_cost(amoves, bmoves):
         return 3 * amoves + 1 * bmoves
 
     total_tokens = 0
-    eps = 1e-6
+    ignored = 0
+    eps = 1e-4
 
-    for m in machines:
-        if not solveable(m):
-            continue
-
+    for (i, m) in enumerate(machines):
         M = np.array([
             [m.asteps.x, m.bsteps.x],
             [m.asteps.y, m.bsteps.y]
@@ -193,7 +185,8 @@ def part1(filename, part2=False):
         na, nb = v = np.linalg.solve(M,y)
 
         if abs(na - round(na)) > eps or abs(nb - round(nb)) > eps:
-            print("ignoring: ", v, na - round(na), nb - round(nb))
+            # print(f"ignoring {i}: ", v, na - round(na), nb - round(nb))
+            ignored += 1
             continue
         na = round(na)
         nb = round(nb)
@@ -201,6 +194,7 @@ def part1(filename, part2=False):
         # print(v, solution_cost(*v))
         total_tokens += solution_cost(*v)
 
+    print(f"{ignored = }")
     print(total_tokens)
 
 def part2(filename):
@@ -213,7 +207,7 @@ def usage(message):
 
 parts = {
     1: part1,
-    2: part2,
+    2: partial(part1, part2=True),
 }
 
 def main(args):
