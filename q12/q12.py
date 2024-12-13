@@ -202,22 +202,190 @@ def sides(places: list[tuple[int, int]], neighbours):
     # print(f"... side count: {side_count}")
     return side_count
 
+def sides_with_edgewalk(
+        places: list[tuple[int, int]],
+        neighbours
+):
+    # notes:
+    #
+    # - if you draw lines on the map grid so that there is
+    #
+    #   - a horizontal line between every pair of adjacent rows and at
+    #     the top and bottom, and a
+    #   - a vertical line between every pair of of adjacent columns
+    #     and at the far left and right
+    #
+    #   these form a lattice of lines and points *between* the cells
+    #   in the grid.
+    #
+    # - Note that the lattice points are distinct from *positions*,
+    #   which are indices into the grid. Among others:
+    #   - lattices points are in {(r, c) | 0 <= r <= nrow, 0 <= c <=
+    #     ncol}, while
+    #   - positions are in {(r, c) | 0 <= r < nrow, 0 <= c < ncol}
+    #
+    # - an *edge* is a pair of lattice points.
+    #
+    #   - IDEA: represent a latticepoint as a frozenset so that it's
+    #     hashable and comparable without ordering issues.
+    #   - Do we need edges except as adjacency information in a graph?
+    #
+    # - we know that "places" form a connected component.
+    #
+    # - we want to identify all the lattice points that are part of a
+    #   boundary of `places`, and the adjacencies between them.
+    #
+    # - CLAIM?: every lattice point discovered above has exactly two
+    #   neighbours, because that has to be true of a closed perimeter
+    #
+    #   - I think this is false, eg in the case of `ab0.txt`: The
+    #     center lattice point (diagonally between the two Bs) is
+    #     adjacent to all 4 of its neighbouring points.
+    #   - Let's ignore the above for now.
+    #
+    # - how about this...
+    #
+    #   1. find all edges that separate a position from a different
+    #      connected component. (note that the exterior of the grid
+    #      counts as a connected component for this purpose.)
+    #   2. choose one of those edges and note the other cc.
+    #   3. now, follow edges separating the same two connected
+    #      component until you return to the starting point, recording
+    #      the turns along the way.
+    #   4. the number of turns is the number of sides.
+    #
+
+    all_edges = set()
+    edge_graph = defaultdict(set)
+    for r, c in places:
+        cc = ccnums[r, c]
+        for dr, dc in [...]:
+            ncc = ccnums[r + dr, c + dc]
+            if cc == ncc: continue
+            match (dr, dc):
+                case (-1,  0): p1, p2 = (r,   c), (r,   c+1)
+                case ( 1,  0): p1, p2 = (r+1, c), (r+1, c+1)
+                case ( 0, -1): p1, p2 = (r,   c), (r+1, c)
+                case ( 0,  1): p1, p2 = (r+1, c), (r+1, c+1)
+                case _:
+                    assert_never((dr, dc))
+            edge_graph[p1].add((p1, cc, ncc, p2))
+            all_edges.add((p1, cc, ncc, p2))
+
+    def next_edges(p: tuple[int, int], cc: int) -> Iterable[tuple[int, int]]:
+        for e in edge_graph[p]:
+            p1, _, othercc, _ = e
+            assert p1 == p, (p, p1)
+            if othercc == cc:
+                yield e
+        return
+
+    def walk_perimeter(start):
+        visited = {start}
+        _, _, othercc, p2 = start
+        e = start
+        while True:
+            choices = list(
+                filter(visited.__contains__, next_edges(p2, othercc))
+            )
+            assert len(choices) <= 1, len(choices)
+            if len(choices) == 0:
+                break
+            e = only(choices)
+            visited.add(e)
+
+    def count_corners(perimeter: list):
+        assert len(perimeter) >= 1
+        count = 0
+        def is_corner(e1, e2):
+            pass
+
+        for e1, e2 in pairwise(chain(perimeter, perimeter[-1])):
+
+            if is_corner(e1, e2):
+                count += 1
+        return count
+
+def looking_at_corner(cc, pos, dir) -> bool:
+    neighbours = {
+        # the directions to the orthogonal neighbours when facing in a
+        # given diagonal direction. these are in the order left,
+        # right, and the code here assumes that
+        (-1, -1): [ (-1, 0), (0, -1) ],
+        (-1, +1): [ (-1, 0), (0, +1) ],
+        (+1, +1): [ (+1, 0), (0, +1) ],
+        (+1, -1): [ (+1, 0), (0, -1) ],
+    }
+
+    truthtable = {
+        # if we're at pos facing in the diagonal direction, we
+        # determine whether or not we're facing a corner by check if
+        # each of the left, diagonal, and right positions are in the
+        # in the same connected component as the current position.
+        #
+        # drawing little 2x2 grids with pos in the lower left corner,
+        # and filling in the other three positions according to each
+        # row below should show the intuition.
+        #
+        # Note (1): One tricky case is if we're adjacent to a corner
+        # but not "on" the corner, so to speak. Consider
+        #
+        #     . x
+        #     X x
+        #
+        # where pos is the lower left the diagonal direction.
+        # Certainly we're adjacent to a corner, but since that corner
+        # will be observed by the lower position, we shouldn't count
+        # it in this case.
+        (False, False, False): True,    # yes: inside corner
+        (False, False,  True): False,   # no: wall continues ahead on left
+        (False,  True, False): True,    # yes: inside corner, same cc to diag
+        (False,  True,  True): False,   # no: see (1)
+        ( True, False, False): False,   # no: wall continues ahead on right
+        ( True, False,  True): True,    # yes: outside corner
+        ( True,  True, False): False,   # no: see (1)
+        ( True,  True,  True): False,   # no: no edges in this direction
+    }
+
+    def adjustpos(dir):
+        r, c = pos
+        dr, dc = dir
+        return (r + dr, c + dc)
+
+    assert pos in cc, (pos, cc)
+    dirleft, dirright = neighbours[dir]
+    s = [dirleft, dir, dirright]
+    s = map(adjustpos, s)
+    left, diag, right = s
+
+    return truthtable[left in cc, diag in cc, right in cc]
+
+def add_boundary(
+        m: np.ndarray,
+        fill,
+        dtype=None,
+) -> np.ndarray:
+    nr, nc = m.shape
+    newm = np.full((nr + 2, nc + 2), fill_value=fill, dtype=dtype)
+    newm[1:-1, 1:-1] = m
+    return newm
 
 def part1(filename, cost: Callable):
-    grid = read_input(filename)
+    grid = add_boundary(
+        read_input(filename),
+        ".", dtype=np.dtypes.StringDType
+    )
+    ccnum = np.zeros(grid.shape)
     rows, cols = map(range, grid.shape)
 
     # display(grid)
 
     nodes = set(product(rows, cols))
-    def neighbours(pos):
+    def neighbours(pos: tuple[int, int]) -> Iterable[tuple[int, int]]:
         r, c = pos
         plant = grid[r, c]
         for dr, dc in [
-            (-1, 0),
-            (+1, 0),
-            (0, -1),
-            (0, +1)
+            (-1, 0), (+1, 0), (0, -1), (0, +1)
         ]:
             nr, nc = r + dr, c + dc
             if (nr, nc) not in nodes:
@@ -226,34 +394,54 @@ def part1(filename, cost: Callable):
                 continue
             yield (nr, nc)
 
+    def set_ccnum(nodes: set[tuple[int, int]], n: int):
+        ccnum[*np.transpose(list(nodes))] = n
+
+    cccount = count(0)
+    boundary = reachable((0, 0), neighbours)
+    set_ccnum(boundary, next(cccount))
+
     all_plants = set(
         grid[r, c] for r, c in product(rows, cols)
-    )
-    # print(all_plants)
+    ) - {"."}
+    print(all_plants)
 
     components = []
     for plant in all_plants:
         locs = set(locate(grid == plant))
         while locs:
-            start = locs.pop()
-            distvec, _ = bfs(start, None, neighbours)
-            reached = set(
-                pos
-                for pos, dist
-                in distvec.items()
-                if dist != float('inf')
-            )
+            cc = reachable(locs.pop(), neighbours)
+            components.append((plant, cc))
+            set_ccnum(cc, next(cccount))
+            locs -= cc
 
-            components.append((plant, reached))
-            locs -= reached
-
-    fencing_cost = 0
+    print(f"{len(components) = }")
+    perimeter_cost = 0
+    corner_cost = 0
     for plant, places in components:
-        cc_cost = cost(places, neighbours)
-        # print(f"{plant} cost(places, neighbours) = {cc_cost}: {places}")
-        fencing_cost += len(places) * cc_cost
-    print(fencing_cost)
+        pcost = perimeter(places, neighbours)
+        ccost = 0
+        for pos, dir in product(places, [
+            (-1, -1),
+            (-1, +1),
+            (+1, -1),
+            (+1, +1),
+        ]):
+            if looking_at_corner(places, pos, dir):
+                ccost += 1
+        print(f"{plant} perim = {pcost} corners = {ccost} area = {len(places)}")
+        perimeter_cost += len(places) * pcost
+        corner_cost += len(places) * ccost
+    print(f"{perimeter_cost = } {corner_cost = }")
 
+def reachable[T](
+        start: T,
+        neighbours: Callable[[T], Iterable[T]]
+) -> set[T]:
+    dist, _ = bfs(start, None, neighbours)
+    return {
+        n for n, d in dist.items() if d != float('inf')
+    }
 
 def part2(filename):
     pass
