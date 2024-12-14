@@ -101,18 +101,127 @@ from aoc.np import (
     follow_ray
 )
 
-def read_input(
-        filename: str,
-        part2: bool
-) -> Any:
-    with open(filename) as f:
-    ...
+type Pos = complex
+type Vel = complex
 
-def part1(filename):
-    ...
+def innermap(f, s):
+    return map(partial(map, f), s)
+
+def read_input(
+        filename: str
+) -> list[
+    tuple[tuple[int, int], tuple[int, int]]
+]:
+    with open(filename) as f:
+        s = iter(f)
+        s = map(partial(re.findall, r"(-?\d+)"), s)
+        # s = observe(partial(print, "#1"), s)
+        s = innermap(int, s)
+        s = map(partial(batched, n=2), s)
+        s = map(tuple, s)
+        return list(s)
+
+def part1(filename, seconds=100):
+    input_guards = read_input(filename)
+
+    xmod = 1 + max(x for (x, _), _ in input_guards)
+    ymod = 1 + max(y for (_, y), _ in input_guards)
+    print(f"{xmod, ymod = }")
+
+    pos = [ complex(*pos) for pos, _ in input_guards ]
+    vel = [ complex(*vel) for _, vel in input_guards ]
+    final_positions = [
+        p + seconds * v
+        for p, v in zip(pos, vel)
+    ]
+
+    ox, oy = xmod // 2, ymod // 2
+    print(f"{ox, oy = }")
+
+    ul, ur, ll, lr = 0, 0, 0, 0
+    for c in final_positions:
+        x, y = c.real % xmod, c.imag % ymod
+        # print(f"{x, y = }", end="")
+        if   x < ox and y < oy: ul += 1; #print(" ... ul")
+        elif x < ox and y > oy: ll += 1; #print(" ... ll")
+        elif x > ox and y < oy: ur += 1; #print(" ... ur")
+        elif x > ox and y > oy: lr += 1; #print(" ... lr")
+        else:
+            print(f"... skipped {x, y}")
+
+    print(f"{ul, ur, ll, lr = }")
+    print(ul * ur * ll * lr)
 
 def part2(filename):
-    pass
+    input_guards = read_input(filename)
+
+    xmod = 1 + max(x for (x, _), _ in input_guards)
+    ymod = 1 + max(y for (_, y), _ in input_guards)
+    print(f"{xmod, ymod = }")
+
+    pos = [ complex(*pos) for pos, _ in input_guards ]
+    vel = [ complex(*vel) for _, vel in input_guards ]
+
+    def consecutive_runs[T](
+            items: Iterable[T],
+            key: Callable[[T], int]
+    ) -> Iterable[list[T]]:
+        item = first(items)
+        if item is None:
+            return
+        run, kprev = [item], key(item)
+        for item in items:
+            kcur = key(item)
+            if kcur != kprev + 1:
+                yield run
+                run, kprev = [item], kcur
+                continue
+            run.append(item)
+            kprev = kcur
+        if len(run) > 0:
+            yield run
+
+    def reduce(c: complex) -> complex:
+        return complex(c.real % xmod, c.imag % ymod)
+
+    def vlines(pos: list[complex], minlen=10):
+        s = sorted(pos, key=lambda c: (c.real, c.imag))
+        for x, col in groupby(s, key=lambda c: c.real):
+            yield from filter(
+                lambda r: len(r) >= minlen,
+                consecutive_runs(col, key=lambda c: int(c.imag))
+            )
+
+    def hlines(pos: list[complex], minlen=10):
+        s = sorted(pos, key=lambda c: (c.imag, c.real))
+        for y, row in groupby(s, key=lambda c: c.imag):
+            yield from filter(
+                lambda r: len(r) >= minlen,
+                consecutive_runs(row, key=lambda c: int(c.real))
+            )
+
+    def update_positions(step:int = 1):
+        for i in range(len(pos)):
+            pos[i] = reduce(pos[i] + step * vel[i])
+
+    def display_pos():
+        m = np.full((ymod, xmod), fill_value=".", dtype=np.dtypes.StringDType)
+        for p in pos:
+            m[int(p.imag), int(p.real)] = "X"
+        display(m)
+
+    display_pos()
+    for i in range(1, 10000):
+        update_positions()
+        hl = list(hlines(pos, minlen=5))
+        vl = list(vlines(pos, minlen=5))
+        nh = len(hl)
+        nl = len(vl)
+
+        if nh and nl:
+            print(f"... candiate {i}")
+            display_pos()
+
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
