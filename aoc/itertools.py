@@ -26,7 +26,7 @@ def mapnth(f, n):
     return update
 
 def observe[T](
-        f: Callable[[T], Any], 
+        f: Callable[[T], Any],
         items: Iterable[T]
 ) -> Iterator[T]:
     for item in items:
@@ -41,7 +41,7 @@ def consume(iterator, n=None):
         next(islice(iterator, n, n), None)
 
 def window[T](
-        items: Iterable[T], 
+        items: Iterable[T],
         n: int
 ) -> Iterator[tuple[T, ...]]:
     iters = tee(items, n)
@@ -57,7 +57,7 @@ def interleave(*iterables: Iterable) -> Iterator:
     while remaining > 0:
         while True:
             it = next(iterators)
-            value = next(it, sentinel) 
+            value = next(it, sentinel)
             if value == sentinel:
                 break
             yield value
@@ -65,13 +65,12 @@ def interleave(*iterables: Iterable) -> Iterator:
         nexts = cycle(islice(iterators, remaining))
 
 def first[T](
-        items: Iterable[T], 
-        strict: bool = False
+        items: Iterable[T],
+        strict: bool = False,
+        sentinel=None,      # never in the iterable
 ) -> T | None:
-    items = iter(items)
-    if not strict:
-        return next(items, None)
-    if (item := next(items, None)) is None:
+    item = next(iter(items), sentinel)
+    if strict and item is sentinel:
         raise ValueError("no first item")
     return item
 
