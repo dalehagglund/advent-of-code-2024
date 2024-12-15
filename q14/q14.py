@@ -104,32 +104,37 @@ from aoc.np import (
 type Pos = complex
 type Vel = complex
 
-def innermap(f, s):
+def innermap[T, U](
+        f: Callable[[T], U],
+        s: Iterable[Iterable[T]]
+) -> Iterable[Iterable[U]]:
     return map(partial(map, f), s)
 
 def read_input(
         filename: str
-) -> list[
-    tuple[tuple[int, int], tuple[int, int]]
-]:
+) -> list[tuple[
+    tuple[int, int],
+    tuple[int, int]
+]]:
+    findall: Callable[[str, str], list[str]] = re.findall
     with open(filename) as f:
         s = iter(f)
-        s = map(partial(re.findall, r"(-?\d+)"), s)
-        # s = observe(partial(print, "#1"), s)
+        s = map(partial(findall, r"(-?\d+)"), s)
         s = innermap(int, s)
         s = map(partial(batched, n=2), s)
         s = map(tuple, s)
         return list(s)
 
 def part1(filename, seconds=100):
-    input_guards = read_input(filename)
+    guards = read_input(filename)
 
-    xmod = 1 + max(x for (x, _), _ in input_guards)
-    ymod = 1 + max(y for (_, y), _ in input_guards)
+    xmod = 1 + max(x for (x, _), _ in guards)
+    ymod = 1 + max(y for (_, y), _ in guards)
     print(f"{xmod, ymod = }")
+    assert xmod % 2 == ymod % 2 == 1
 
-    pos = [ complex(*pos) for pos, _ in input_guards ]
-    vel = [ complex(*vel) for _, vel in input_guards ]
+    pos = [ complex(*pos) for pos, _ in guards ]
+    vel = [ complex(*vel) for _, vel in guards ]
     final_positions = [
         p + seconds * v
         for p, v in zip(pos, vel)
@@ -153,14 +158,14 @@ def part1(filename, seconds=100):
     print(ul * ur * ll * lr)
 
 def part2(filename):
-    input_guards = read_input(filename)
+    guards = read_input(filename)
 
-    xmod = 1 + max(x for (x, _), _ in input_guards)
-    ymod = 1 + max(y for (_, y), _ in input_guards)
+    xmod = 1 + max(x for (x, _), _ in guards)
+    ymod = 1 + max(y for (_, y), _ in guards)
     print(f"{xmod, ymod = }")
 
-    pos = [ complex(*pos) for pos, _ in input_guards ]
-    vel = [ complex(*vel) for _, vel in input_guards ]
+    pos = [ complex(*pos) for pos, _ in guards ]
+    vel = [ complex(*vel) for _, vel in guards ]
 
     def consecutive_runs[T](
             items: Iterable[T],
