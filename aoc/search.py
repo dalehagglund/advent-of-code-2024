@@ -68,7 +68,7 @@ def dijkstra[T](
 
 def astar[T](
         start: T,
-        end: T | None,
+        end: T | Callable[[T], bool] | None,
         neighbours: Neighbours[T],
         edge_cost: Callable[[T, T], int] | None = None,
         est_remaining: Callable[[T, T], int] | None = None,
@@ -80,6 +80,12 @@ def astar[T](
 
     if edge_cost is None: edge_cost = lambda n1, n2: 1
     if est_remaining is None: est_remaining = lambda n1, n2: 0
+    if end is None:
+        reached_goal = lambda n: False
+    elif callable(end):
+        reached_goal = end
+    else:
+        reached_goal = lambda n: n == end
 
     seen: set[T] = set()
     dist: defaultdict[T, float | int] = defaultdict(lambda: float('inf'))
@@ -113,7 +119,7 @@ def astar[T](
     while len(q) > 0:
         node = pop()
         verbose > 1 and print(f"pop: {node = }")
-        if node == end:
+        if reached_goal(node):
             verbose > 1 and print(f"found goal: {end}")
             break
 

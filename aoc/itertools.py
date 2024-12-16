@@ -1,4 +1,5 @@
 import collections
+import typing
 from typing import (
     Any,
     Callable,
@@ -64,6 +65,16 @@ def interleave(*iterables: Iterable) -> Iterator:
         remaining -= 1
         nexts = cycle(islice(iterators, remaining))
 
+@typing.overload
+def first[T](
+    items: Iterable[T], strict: bool = True
+) -> T: ...
+
+@typing.overload
+def first[T](
+    items: Iterable[T], strict: bool = False
+) -> T | None: ...
+
 def first[T](
         items: Iterable[T],
         strict: bool = False,
@@ -71,15 +82,33 @@ def first[T](
 ) -> T | None:
     item = next(iter(items), sentinel)
     if strict and item is sentinel:
-        raise ValueError("no first item")
+        raise ValueError("items is empty")
     return item
+
+@typing.overload
+def last[T](
+    items: Iterable[T], strict: bool = True
+) -> T: ...
+
+@typing.overload
+def last[T](
+    items: Iterable[T], strict: bool = False
+) -> T | None: ...
+
+def last[T](
+        items: Iterable[T],
+        strict: bool = False
+) -> T | None:
+    queue = collections.deque(iter(items), maxlen=1)
+    if strict and not queue:
+        raise ValueError("items is empty")
+    return queue[0] if queue else None
 
 def only[T](
         items: Iterable[T]
 ) -> T:
     items = iter(items)
     item = next(items, None)
-    print(f"{item = }")
     if item is None:
         raise ValueError("no first item")
     if next(items, None) is not None:

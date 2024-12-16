@@ -7,11 +7,11 @@ from functools import (
     partial,
 )
 
-def locate(g) -> Iterator[tuple[int, int]]:
-    # return non-zero locations in g in a more useful form for 
+def locate(g: np.ndarray) -> Iterator[tuple[int, ...]]:
+    # return non-zero locations in g in a more useful form for
     # my python code. shoudl probably be called with an array resulting
     # from a boolean operation of some sort.
- 
+
     s = zip(*g.nonzero())
     s = map(partial(map, int), s)
     s = map(tuple, s)
