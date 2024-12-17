@@ -146,7 +146,11 @@ def dis(prog: list[int]):
     }
 
     for i, (instr, op) in enumerate(batched(prog, 2)):
-        print(f"{i*2:<5}{names[instr]:<8}{fmtop[names[instr]](op)}")
+        print(
+            f"{i*2:<5}"
+            f"{names[instr]:<8}"
+            f"{fmtop[names[instr]](op)}"
+        )
 
 def combo(op, regs):
     if 0 <= op <= 3:
@@ -292,56 +296,55 @@ def part2(filename):
     # - accumulated "a" value,
     # - remaining outputs to produce
 
+    first_found = None
     start = (0, tuple(prog))
-    end = lambda state: state[1] == tuple()
-    def moves(state) -> Iterator:
+    def end(state) -> bool:
+        nonlocal first_found
+        a, rem = state
+        if len(rem) == 0:
+            first_found = a
+            return True
+        return False
+
+    def moves(state) -> Iterator[tuple[int, tuple[int, ...]]]:
         aprev, remaining = state
         if len(remaining) == 0:
             return
         target = remaining[-1]
+        # the order in which we look for potential solutions has an
+        # impact on the order in which overall search finds the
+        # terminal solutions (one where we get through all of the
+        # output).
+        #
+        # in the standard order, use below, even bfs will find the
+        # smallest solution first. but if the order is shuffled, then
+        # it's necessary to use a* with edge-weights to find the best
+        # solution first.
         for lowbits in range(8):
             regs = origregs.copy()
             anew = aprev * 8 + lowbits
             regs["A"] = anew
             output, _ = runprog(prog[:-2], regs, False)
             if output == target:
-                yield  anew, remaining[:-1]
+                yield anew, remaining[:-1]
 
-    dist, prev = astar(
-        start,
-        end,
-        moves,
-    )
+    def movecost(s1, s2):
+        # see the comment in `moves` for more details on why this
+        # function is necessary (sometimes). but as noted there, we
+        # can throw this away and go back to bfs and for this puzzle
+        # it really doesn't matter much.
+        (a1, _), (a2, _) = s1, s2
+        assert a2 - a1 >= 0, (s1, s2)
+        return 1 + a2 - a1
 
-    for (a, rem), d in dist.items():
-        if len(rem) > 0: continue
-        print((a, rem), d)
+    dist, _ = astar(start, end, moves, movecost)
 
-    amin = min(
-        a
-        for (a, rem), d
-        in dist.items()
-        if len(rem) == 0
-    )
+    print(f"{first_found = }")
+    solutions = { a for (a, rem), _ in dist.items() if len(rem) == 0 }
+    distances = { d for (a, rem), d in dist.items() if len(rem) == 0 }
+    print(f"{len(solutions), len(distances) = }")
+    amin = min(solutions)
     print(amin)
-
-    return
-    def onestep(aprev, target):
-        for lowbits in range(7):
-            regs = origregs.copy()
-            regs["A"] = aprev * 8 + lowbits
-            output, _ = runprog(prog[:-2], regs, False)
-            if output == target:
-                yield  a * 8 + lowbits
-    a = 0
-    targets = reversed(prog)
-    for _ in range(2):
-        g = next(targets)
-        opts = list(onestep(a, g))
-        print("... ", g, opts)
-        if len(opts) == 1:
-            a = opts[0]
-
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
