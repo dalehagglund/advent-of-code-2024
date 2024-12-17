@@ -67,7 +67,7 @@ def dijkstra[T](
     )
 
 def astar[T](
-        start: T,
+        start: set[T] | T,
         end: T | Callable[[T], bool] | None,
         neighbours: Neighbours[T],
         edge_cost: Callable[[T, T], int] | None = None,
@@ -114,8 +114,14 @@ def astar[T](
             f" seen {len(seen)}"
         )
 
-    dist[start] = 0
-    push(start, dist[start])
+    if isinstance(start, set):
+        for s in start:
+            dist[s] = 0
+            push(s, dist[s])
+    else:
+        dist[start] = 0
+        push(start, dist[start])
+
     while len(q) > 0:
         node = pop()
         verbose > 1 and print(f"pop: {node = }")
@@ -132,7 +138,7 @@ def astar[T](
 
         for n in neighbours(node):
             verbose > 1 and print(f"... neighbour {n}")
-            cost = edge_cost(n, node)
+            cost = edge_cost(node, n)
             ndist = dist[node] + cost
             verbose > 1 and print(f"... {node} -> {n}: delay {cost} newdist {ndist}")
             if n not in dist or ndist < dist[n]:
@@ -168,6 +174,6 @@ def allpaths[T](
             continue
         with (
             _around(partial(path.append, n), path.pop),
-            _around(partial(nodes.add, n), nodes.remove)
+            _around(partial(nodes.add, n), partial(nodes.remove, n))
         ):
             yield from allpaths(path, nodes, neighbours, keep)
