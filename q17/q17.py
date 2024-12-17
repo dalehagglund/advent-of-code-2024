@@ -109,27 +109,239 @@ def innermap[T, U](
 
 def read_input(
         filename: str
-):
+) -> tuple[list[int], dict[str, int]]:
     with open(filename) as f:
         s = iter(f)
         s = map(str.rstrip, s)
-        s = map(list, s)
-        return np.array(list(s), dtype=np.dtypes.StringDType)
+        s = split(lambda line: line == "", s)
+        data, prog = s
 
-dirs = {
-    "^": (-1,  0),
-    ">": ( 0, +1),
-    "v": (+1,  0),
-    "<": ( 0, -1),
-}
+        regs = {}
+        for reg in data:
+            ns, vs = re.findall(r"([ABC]|\d+)", reg)
+            regs[ns] = int(vs)
+        prog = list(map(int, only(prog).split(" ")[1].split(",")))
+        return prog, regs
 
-dirsym = dict((v, k) for k, v in dirs.items())
+names = "adv,bxl,bst,jnz,bxc,out,bdv,cdv".split(",")
 
-def part1(filename):
-    grid = read_input(filename)
+def dis(prog: list[int]):
+    def combo(op):
+        if 0 <= op <= 3: return f"#{op}"
+        if op == 4: return "A"
+        if op == 5: return "B"
+        if op == 6: return "C"
+        assert False, f"invalid combo op: {op}"
+    def lit(op): return f"{op}"
+    def ignore(op): return f""
+    fmtop = {
+        "adv": combo,
+        "bxl": lit,
+        "bst": combo,
+        "jnz": lit,
+        "bxc": ignore,
+        "out": combo,
+        "bdv": combo,
+        "cdv": combo,
+    }
+
+    for i, (instr, op) in enumerate(batched(prog, 2)):
+        print(f"{i*2:<5}{names[instr]:<8}{fmtop[names[instr]](op)}")
+
+def combo(op, regs):
+    if 0 <= op <= 3:
+        return op
+    if op == 4: return regs["A"]
+    if op == 5: return regs["B"]
+    if op == 6: return regs["C"]
+    assert False, f"invalid combo op: {op}"
+
+def simstep(step, ip, instr, op, regs, trace=False) -> tuple[int, int | None]:
+    if trace: print(
+        f"\nstep {step}: "
+        f"{ip = } "
+        f"{names[instr]} "
+        f"lit {op} "
+        f"combo {str(combo(op, regs)) if op <= 6 else "?"}"
+    )
+    output: int | None = None
+    if trace: print(f"... regs before ", *regs.items())
+    match instr:
+        case 0: # adv
+            num = regs["A"]
+            den = 2 ** combo(op, regs)
+            regs["A"] = num // den
+            ip += 2
+        case 1: # bxl
+            regs["B"] = regs["B"] ^ op
+            ip += 2
+        case 2: #  bst
+            regs["B"] = combo(op, regs) % 8
+            ip += 2
+        case 3: # jnz
+            ip = op if regs["A"] != 0 else ip + 2
+        case 4: # bxc
+            regs["B"] = regs["B"] ^ regs["C"]
+            ip += 2
+        case 5: # out
+            if trace: print(f"... out {combo(op, regs) % 8}")
+            output = combo(op, regs) % 8
+            ip += 2
+        case 6: # bdv
+            num = regs["A"]
+            den = 2 ** combo(op, regs)
+            regs["B"] = num // den
+            ip += 2
+        case 7: # cdv
+            num = regs["A"]
+            den = 2 ** combo(op, regs)
+            regs["C"] = num // den
+            ip += 2
+    if trace: print(f"... regs after", *regs.items())
+
+    return ip, output
+
+def runprog(
+        prog: list[int],
+        regs: dict[str, int],
+        trace: bool = True,
+) -> Iterator[int]:
+    output = []
+    stopped = False
+    ip = 0
+
+    visited = set()
+
+    for step in count(0):
+        if ip >= len(prog):
+            break
+        state = (ip, *regs.values())
+        if state in visited:
+            raise ValueError(f"cycle detected: {step = } {state = }")
+        visited.add(state)
+
+        instr, op = prog[ip], prog[ip+1]
+        ip, output = simstep(step, ip, instr, op, regs, trace)
+        if output is not None: yield output
+
+    yield -1
+
+@pytest.mark.parametrize(
+    "init, regsout, out, prog",
+    [
+        [ (0, 0, 9),  (-1, 1, -1), None, [2, 6] ],
+        [ (10, 0, 0), None, [0, 1, 2, -1], [5,0,5,1,5,4] ],
+        [ (2024, 0, 0), (0, -1, -1), [4,2,5,6,7,7,7,7,3,1,0,-1], [0,1,5,4,3,0] ],
+        [ (0, 29, 0), (-1, 26, -1), None, [1,7] ],
+        [ (0, 2024, 43690), (-1, 44354, -1), None, [4, 0] ],
+    ]
+)
+def test_runprog(init, regsout, out, prog):
+    regs = dict(zip("ABC", init))
+    output = list(runprog(prog, regs, trace=False))
+    if out is not None:
+        assert out == output
+    if regsout is not None:
+        for r, expected in zip("ABC", regsout):
+            if expected == -1:
+                continue
+            assert regs[r] == expected
+
+def part1(filename, part1=True):
+    prog, regs = read_input(filename)
+    print(prog, regs)
+
+    dis(prog)
+
+    if part1:
+        output = list(runprog(prog, regs.copy(), trace=False))[:-1]
+        print(",".join(map(str, output)))
+        return
+
+    for n in count(2 ** (3*len(prog))):
+        if n % 250000 == 0: print(f"{n = }")
+        input = regs.copy()
+        input["A"] = n
+        output = runprog(prog, input, trace=False)
+        for i, (expected, out) in enumerate(zip(prog + [-1], output)):
+            # print(f"*** step {i}: {expected, out = }")
+            if expected != out:
+                # print(f"*** mismatch at step {i}:", expected, out)
+                break
+        else:
+            print("... matched!")
+            break
+
+    print(n)
+
 
 def part2(filename):
-    ...
+    prog, origregs = read_input(filename)
+
+    assert prog[-2:] == [3, 0]      # jnz 0
+    assert 1 == sum(
+        (ip, op) == (0, 3)          # adv 3
+        for ip, op in batched(prog, 2)
+    )
+
+    dis(prog)
+    print()
+
+    # states are tuples with
+    #
+    # - accumulated "a" value,
+    # - remaining outputs to produce
+
+    start = (0, tuple(prog))
+    end = lambda state: state[1] == tuple()
+    def moves(state) -> Iterator:
+        aprev, remaining = state
+        if len(remaining) == 0:
+            return
+        target = remaining[-1]
+        for lowbits in range(8):
+            regs = origregs.copy()
+            anew = aprev * 8 + lowbits
+            regs["A"] = anew
+            output, _ = runprog(prog[:-2], regs, False)
+            if output == target:
+                yield  anew, remaining[:-1]
+
+    dist, prev = astar(
+        start,
+        end,
+        moves,
+    )
+
+    for (a, rem), d in dist.items():
+        if len(rem) > 0: continue
+        print((a, rem), d)
+
+    amin = min(
+        a
+        for (a, rem), d
+        in dist.items()
+        if len(rem) == 0
+    )
+    print(amin)
+
+    return
+    def onestep(aprev, target):
+        for lowbits in range(7):
+            regs = origregs.copy()
+            regs["A"] = aprev * 8 + lowbits
+            output, _ = runprog(prog[:-2], regs, False)
+            if output == target:
+                yield  a * 8 + lowbits
+    a = 0
+    targets = reversed(prog)
+    for _ in range(2):
+        g = next(targets)
+        opts = list(onestep(a, g))
+        print("... ", g, opts)
+        if len(opts) == 1:
+            a = opts[0]
+
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
@@ -138,7 +350,7 @@ def usage(message):
 
 parts = {
     1: part1,
-    2: partial(part1),
+    2: part2,
 }
 
 def main(args):
