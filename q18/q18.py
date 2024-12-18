@@ -172,7 +172,7 @@ def part1(filename):
 
 def part2(filename):
     positions = read_input(filename)
-    print(positions)
+    # print(positions)
 
     nrow = 1 + max(r for r, _ in positions)
     ncol = 1 + max(c for _, c in positions)
@@ -221,13 +221,41 @@ def part2(filename):
 
         return result
 
+    def distance(n: tuple[int, int], end: tuple[int,int]) -> int:
+        return (
+            abs(n[0] - end[0]) +
+            abs(n[1] - end[1])
+        )
+        # return sum(abs(d) for d in map(operator.sub, n, end)))
+
+    def shortest_path(prev, initial) -> list:
+        path = [initial]
+        while (n := prev[path[-1]]) is not None:
+            path.append(n)
+        path.reverse()
+        return path
+
+    last_path = None
+    skips = 0
     for i, coord in enumerate(blocks):
-        print(f"{i}: adding {coord}")
+        if i % 250 == 0: print(f"{i}: adding {coord}")
         grid[coord] = "#"
-        dist, _ = astar(start, end, functools.cache(neighbours))
+
+        if last_path and (grid[*np.transpose(last_path)] == ".").all():
+            # print(f"{i}: last path still good... skipping astar")
+            skips += 1
+            continue
+
+        dist, prev = astar(
+            start, end,
+            functools.cache(neighbours),
+            est_remaining=functools.cache(distance))
         if end not in dist:
             print(f"last coord: {coord}")
             break
+
+        last_path = shortest_path(prev, end)
+    print(f"{skips = }")
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
