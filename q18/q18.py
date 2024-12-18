@@ -171,7 +171,63 @@ def part1(filename):
     print(dist[end])
 
 def part2(filename):
-    ...
+    positions = read_input(filename)
+    print(positions)
+
+    nrow = 1 + max(r for r, _ in positions)
+    ncol = 1 + max(c for _, c in positions)
+
+    assert min(r for r, _ in positions) == 0
+    assert min(c for _, c in positions) == 0
+
+    grid = np.full(
+        (nrow, ncol),
+        fill_value=".",
+        dtype=np.dtypes.StringDType
+    )
+
+    if (nrow, ncol) == (7, 7):
+        blocks = positions
+    elif (nrow, ncol) == (71, 71):
+        blocks = positions
+    else:
+        print("unknown size!")
+        return
+
+    rows = range(nrow)
+    cols = range(ncol)
+
+    # grid[*np.transpose(blocks)] = "#"
+    # print(f"after {len(blocks)} ...")
+    # display(grid)
+
+    start = (0, 0)
+    end = (nrow - 1, ncol - 1)
+
+    def neighbours(pos) -> set[tuple[int, int]]:
+        result = set()
+        r, c = pos
+        for dr, dc in [
+            (+1,  0),
+            (-1,  0),
+            ( 0, +1),
+            ( 0, -1),
+        ]:
+            if r + dr not in rows or c + dc not in cols:
+                continue
+            if grid[r + dr, c + dc] != ".":
+                continue
+            result.add( (r + dr, c + dc) )
+
+        return result
+
+    for i, coord in enumerate(blocks):
+        print(f"{i}: adding {coord}")
+        grid[coord] = "#"
+        dist, _ = astar(start, end, functools.cache(neighbours))
+        if end not in dist:
+            print(f"last coord: {coord}")
+            break
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
