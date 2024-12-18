@@ -249,7 +249,10 @@ def part2(filename):
         dist, prev = astar(
             start, end,
             functools.cache(neighbours),
-            est_remaining=functools.cache(distance))
+            est_remaining=functools.cache(
+                lambda n1, n2: 250 * distance(n1, n2)
+            )
+        )
         if end not in dist:
             print(f"last coord: {coord}")
             break
