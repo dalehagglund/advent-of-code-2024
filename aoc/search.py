@@ -99,7 +99,7 @@ def astar[T](
     sequence = count(1)
     def push(item, prio):
         heapq.heappush(q, (prio, next(sequence), item))
-    def pop():
+    def pop() -> T:
         _, _, item = heapq.heappop(q)
         return item
 
