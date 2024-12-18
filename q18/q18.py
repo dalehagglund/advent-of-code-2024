@@ -109,14 +109,66 @@ def innermap[T, U](
 
 def read_input(
         filename: str
-) -> tuple[list[int], dict[str, int]]:
+) -> list[tuple[int, int]]:
     with open(filename) as f:
         s = iter(f)
         s = map(str.rstrip, s)
-        ...
+        s = map(partial(str.split, sep=","), s)
+        s = innermap(int, s)
+        s = map(tuple, s)
+        return list(s)
 
 def part1(filename):
-    ...
+    positions = read_input(filename)
+    print(positions)
+
+    nrow = 1 + max(r for r, _ in positions)
+    ncol = 1 + max(c for _, c in positions)
+
+    assert min(r for r, _ in positions) == 0
+    assert min(c for _, c in positions) == 0
+
+    grid = np.full(
+        (nrow, ncol),
+        fill_value=".",
+        dtype=np.dtypes.StringDType
+    )
+
+    if (nrow, ncol) == (7, 7):
+        blocks = positions[:12]
+    elif (nrow, ncol) == (71, 71):
+        blocks = positions[:1024]
+    else:
+        print("unknown size!")
+        return
+
+    grid[*np.transpose(blocks)] = "#"
+    print(f"after {len(blocks)} ...")
+    display(grid)
+
+    all_coords = set(
+        (r, c)
+        for r, c in product(range(nrow), range(ncol))
+        if grid[r, c] == "."
+    )
+
+    def neighbours(pos) -> Iterator[tuple[int, int]]:
+        r, c = pos
+        for dr, dc in [
+            (+1,  0),
+            (-1,  0),
+            ( 0, +1),
+            ( 0, -1),
+        ]:
+            if (r + dr, c + dc) not in all_coords:
+                continue
+            yield (r + dr, c + dc)
+
+    start = (0, 0)
+    end = (nrow-1, ncol-1)
+
+    dist, _ = astar(start, end, neighbours)
+    print(dist[end])
 
 def part2(filename):
     ...
