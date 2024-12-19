@@ -113,10 +113,52 @@ def read_input(
     with open(filename) as f:
         s = iter(f)
         s = map(str.rstrip, s)
-        ...
+        left, designs = split(lambda line: line == "", s)
+        towels = only(left).split(", ")
+        return towels, designs
 
 def part1(filename):
-    ...
+    towels, designs = read_input(filename)
+    min_towel = min(len(t) for t in towels)
+    #print(towels, designs)
+
+    # note: part 1 is solveable by bfs search, moving backwards
+    # through the state space. I wrote this cached cached dynamic
+    # programming solution first anyway, though, in part because I
+    # expected part 2 to be about the total *number* of ways, which it
+    # was.
+
+    @functools.cache
+    def count_solutions(design: str, depth:int = 0) -> int:
+        # def trace(*args): print(" " * depth, *args, sep="")
+        def trace(*args): pass
+
+        trace(f"> {design = }")
+        if design == "":
+            return 1
+
+        count = 0
+        for t in towels:
+            if not design.endswith(t):
+                continue
+            trace(f"= trying {t}")
+            count += count_solutions(design[:-len(t)], depth+1)
+        trace(f"< {design = } -> {count}")
+        return count
+
+    print(towels)
+    possible = 0
+    total_ways = 0
+
+    for i, d in enumerate(designs):
+        ways = count_solutions(d)
+        # print(f"{d}: {ways}")
+        total_ways += ways
+        if ways > 0:
+            possible += 1
+
+    print(f"{total_ways = }")
+    print(f"{possible = }")
 
 def part2(filename):
     ...
