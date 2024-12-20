@@ -156,18 +156,40 @@ def p2_cheat_endpoints(
         pos: tuple[int, int],
         rad: int
 ) -> Iterator[tuple[int, int]]:
+    md = mh_dist_from(grid, pos)
+    return locate((grid != "#") & (md <= rad))
+
+def p2_cheat_mask(grid, pos, rad) -> np.ndarray[Any, np.dtypes.BoolDType]:
+    md = mh_dist_from(grid, pos)
+    return (grid != "#") & (md <= rad)
+
+def mh_dist_from(grid, pos):
     r, c = pos
-    md = np.fromfunction(
+    return np.fromfunction(
         lambda i, j: abs(i - r) + abs(j - c),
         grid.shape,
     )
-    return locate((grid != "#") & (md <= rad))
 
-def part1(filename, cheatradius, mincheat=50, part2=False):
-    grid = read_input(filename)
+@pytest.mark.parametrize(
+    "dist, origin, other",
+    [
+        [ 0, (0, 0), (0, 0) ],
+        [ 2, (0, 0), (1, 1) ],
+        [ 6, (0, 0), (3, 3) ],
+        [ 2, (0, 0), (0, 2) ],
+        [ 3, (0, 0), (1, 2) ],
+    ]
+)
+def test_mh_dist_from(dist, origin, other):
+    grid = np.zeros((4, 4))
+    dist_to = mh_dist_from(grid, origin)
+    assert dist_to[other] == dist
+
+def shared_setup(grid) -> tuple:
     rows, cols = map(range, grid.shape)
-
     positions = set(product(rows, cols))
+    start = only(locate(grid == "S"))
+    end = only(locate(grid == "E"))
 
     def neighbours(pos) -> Iterator[tuple[int, int]]:
         r, c = pos
@@ -177,20 +199,14 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
             if grid[r + dr, c + dc] == "#":
                 continue
             yield r + dr, c + dc
-
-    def extract_path(prev, n) -> list:
+    def extract_path[T](prev, n: T) -> list[T]:
         path = [n]
         while (n := prev[n]) is not None:
             path.append(n)
         path.reverse()
         return path
-
-    start = only(locate(grid == "S"))
-    end = only(locate(grid == "E"))
-
     def make_distvec():
         return np.full_like(grid, fill_value=float('inf'), dtype=np.float64)
-
     dist, prev = astar(
         start,
         None,
@@ -198,46 +214,42 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
         dist_factory=make_distvec,
     )
 
-    print(f"{end = } {dist[end] = }")
-    shortest_path = extract_path(prev, end)
+    return dist, extract_path(prev, end)
 
-    savings: defaultdict[int, set] = defaultdict(set)
+def part1(filename, cheatradius, min_saving=50):
+    grid = read_input(filename)
+    dist, shortest_path = shared_setup(grid)
+
+    positions = set(product(*map(range, grid.shape)))
+    winning_cheats: defaultdict[int, set] = defaultdict(set)
     for pos, dir in product(shortest_path, all_dirs):
         saved = p1_try_cheat(pos, dir, grid, dist, positions)
         if saved > 0:
-            savings[saved].add((pos, dir))
+            winning_cheats[saved].add((pos, dir))
 
     part1_above_mincheat = 0
-    for saved, cheats in savings.items():
-        if saved >= mincheat: part1_above_mincheat += len(cheats)
+    for saved, cheats in winning_cheats.items():
+        if saved >= min_saving: part1_above_mincheat += len(cheats)
     print(f"{part1_above_mincheat = }")
 
-    if not part2: return
+def part2(filename, cheatradius, min_saving=50):
+    grid = read_input(filename)
+    dist, shortest_path = shared_setup(grid)
 
-    savings: defaultdict[int, set] = defaultdict(set)
-
-    print(f"{mincheat = } {cheatradius = }")
+    winning_cheats = np.zeros((len(shortest_path) + 1,), dtype=int)
+    print(f"{min_saving = } {cheatradius = }")
     for i, pos in enumerate(shortest_path):
         if i % 500 == 0: print(f"path step {i} ...")
-        # print(f"path step {i} pos {pos} ...")
-        reachable_cheats = set(p2_cheat_endpoints(grid, pos, cheatradius))
-        # print(f"   reachable cheats", len(reachable_cheats))
-        for cheat in reachable_cheats:
-            posdist = dist[pos]
-            cheatdist = mh_dist(pos, cheat) + dist[cheat]
 
-            if cheatdist >= posdist:
-                continue
-            savings[posdist - cheatdist].add((pos, cheat))
+        cheats = p2_cheat_mask(grid, pos, cheatradius)
+        dist_from_pos = mh_dist_from(grid, pos)
+        shortcut_savings = dist[pos] - (dist_from_pos + dist)
+        for cheat in locate((shortcut_savings > 0) & cheats):
+            winning_cheats[int(shortcut_savings[cheat])] += 1
 
-    print(f"{mincheat = } {cheatradius = }")
-    part2_above_mincheat = 0
-    for saved, cheats in savings.items():
-        if saved >= mincheat: part2_above_mincheat += len(cheats)
+    print(f"{min_saving = } {cheatradius = }")
+    part2_above_mincheat = int(winning_cheats[min_saving:].sum())
     print(f"part 2: {part2_above_mincheat = }")
-
-def part2(filename):
-    ...
 
 def usage(message):
     print(f'usage: {sys.argv[0]} [-1|-2] [--] input_file...')
@@ -245,8 +257,8 @@ def usage(message):
     sys.exit(1)
 
 parts = {
-    1: partial(part1, cheatradius=2, mincheat=100, part2=False),
-    2: partial(part1, cheatradius=20, mincheat=100, part2=True),
+    1: partial(part1, cheatradius=2, min_saving=100),
+    2: partial(part2, cheatradius=20, min_saving=100),
 }
 
 def main(args):
@@ -258,7 +270,7 @@ def main(args):
     for flag in argscan(args):
         if flag in ('-1'): torun.add(1)
         elif flag in ('-2'): torun.add(2)
-        elif flag in ('--mincheat'): options["mincheat"] = int(args.pop(0))
+        elif flag in ('--mincheat'): options["min_saving"] = int(args.pop(0))
         else:
             usage(f"{flag}: unexpected option")
     if not torun: torun = {1, 2}
