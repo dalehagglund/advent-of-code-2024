@@ -5,7 +5,9 @@ from typing import (
     Callable,
     Iterable,
     Iterator,
-    assert_never
+    Protocol,
+    assert_never,
+    assert_type
 )
 from collections import Counter, defaultdict
 from functools import partial
@@ -66,6 +68,12 @@ def dijkstra[T](
         verbose=verbose, statsevery=statsevery
     )
 
+class Indexable[K, V](Protocol):
+    def __getitem__(self, k: K, /) -> V: ...
+    def __setitem__(self, k: K, v: V, /): ...
+
+type DistVector[K] = Indexable[K, float]
+
 def astar[T](
         start: set[T] | T,
         end: T | Callable[[T], bool] | None,
@@ -74,12 +82,18 @@ def astar[T](
         est_remaining: Callable[[T, T], int] | None = None,
         verbose: int = 0,
         statsevery: int = 500,
+        dist_factory: Callable[[], DistVector[T]] | None = None,
 ):
     if end is None and est_remaining is not None:
         raise ValueError("est_remaining not allowed if end is None")
 
-    if edge_cost is None: edge_cost = lambda n1, n2: 1
-    if est_remaining is None: est_remaining = lambda n1, n2: 0
+    if edge_cost is None:
+        edge_cost = lambda n1, n2: 1
+    if est_remaining is None:
+        est_remaining = lambda n1, n2: 0
+    if dist_factory is None:
+        dist_factory = lambda: defaultdict[T, float](lambda: float('inf'))
+
     if end is None:
         reached_goal = lambda n: False
     elif callable(end):
@@ -88,7 +102,8 @@ def astar[T](
         reached_goal = lambda n: n == end
 
     seen: set[T] = set()
-    dist: defaultdict[T, float | int] = defaultdict(lambda: float('inf'))
+    # dist: defaultdict[T, float | int] = defaultdict(lambda: float('inf'))
+    dist: DistVector[T] = dist_factory()
     prev: defaultdict[T, T | None] = defaultdict(lambda: None)
 
     est_remaining = functools.cache(est_remaining)
@@ -103,14 +118,14 @@ def astar[T](
         _, _, item = heapq.heappop(q)
         return item
 
-    loops, updates, rescans = 0, 0, 0
+    loops, assigned, updates, rescans = 0, 0, 0, 0
     def display_stats():
         if verbose: print(
             f"..."
             f" loops {loops}"
             f" updates {updates}"
             f" rescans {rescans}"
-            f" assigned {len(dist)}"
+            f" assigned {assigned}"
             f" seen {len(seen)}"
         )
 
@@ -141,8 +156,20 @@ def astar[T](
             cost = edge_cost(node, n)
             ndist = dist[node] + cost
             verbose > 1 and print(f"... {node} -> {n}: delay {cost} newdist {ndist}")
-            if n not in dist or ndist < dist[n]:
-                if n in dist: updates += 1
+            # before introducing the `DistVec` idea and the
+            # `make_distvec` parameter, `dist` was always a
+            # `defaultdict`, and the next line was
+            #
+            #     if n in distvec and ndist < dist[n]: ...
+            #
+            # now, we can't assume that the `in` operator works in the
+            # way we wanted (consider a numpy array indexed by
+            # co-ordinate pairs).
+            if ndist < dist[n]:
+                if dist[n] == float('inf'):
+                    assigned += 1   # the first assignment of dist[n]
+                else:
+                    updates += 1    # a re-assignment of dist[n]
                 prev[n] = node
                 dist[n] = ndist
                 push(n, dist[n] + est_remaining(n, end))
