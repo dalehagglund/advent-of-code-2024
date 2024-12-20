@@ -126,7 +126,7 @@ all_dirs = [
     ( 0, +1),
 ]
 
-def try_cheat(
+def p1_try_cheat(
         pos, dir, grid, dist, positions
 ) -> int:
     (r, c), (dr, dc) = pos, dir
@@ -151,31 +151,17 @@ def try_cheat(
 def mh_dist(p, q):
     return sum(abs(d) for d in map(operator.sub, p, q))
 
-@functools.cache
-def md_mask(d: int) -> np.ndarray:
-    mask = np.zeros((2 * d + 1, 2 * d + 1), dtype=np.bool)
-    center = (d, d)      # center
-    for r, c in product(*map(range, mask.shape)):
-        if mh_dist((r, c), center) <= d:
-            mask[r, c] = 1
-    return mask
-
-def part2_possible_cheat_locs(
-        pos, d, grid
+def p2_cheat_endpoints(
+        grid,
+        pos: tuple[int, int],
+        rad: int
 ) -> Iterator[tuple[int, int]]:
-    nrow, ncol = grid.shape
     r, c = pos
-
-    for dr, dc in product(range(-d, d+1), repeat=2):
-        nr, nc = r + dr, c + dc
-        if dr == 0 and dc == 0:
-            continue
-        if not (0 <= nr < nrow and 0 <= nc < ncol):
-            continue
-        if grid[nr, nc] == "#":
-            continue
-        if mh_dist((nr, nc), pos) <= d:
-            yield (nr, nc)
+    md = np.fromfunction(
+        lambda i, j: abs(i - r) + abs(j - c),
+        grid.shape,
+    )
+    return locate((grid != "#") & (md <= rad))
 
 def part1(filename, cheatradius, mincheat=50, part2=False):
     grid = read_input(filename)
@@ -208,16 +194,12 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
     )
     print(f"{end = } {dist[end] = }")
     shortest_path = extract_path(prev, end)
-    nodes_on_path = set(shortest_path)
 
     savings: defaultdict[int, set] = defaultdict(set)
     for pos, dir in product(shortest_path, all_dirs):
-        saved = try_cheat(pos, dir, grid, dist, positions)
+        saved = p1_try_cheat(pos, dir, grid, dist, positions)
         if saved > 0:
             savings[saved].add((pos, dir))
-
-    # for k, v in sorted(savings.items(), key=star(lambda k, _: k)):
-    #     print(f"{k} picoseconds: {len(v)} cheats")
 
     part1_above_mincheat = 0
     for saved, cheats in savings.items():
@@ -232,7 +214,9 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
     for i, pos in enumerate(shortest_path):
         if i % 250 == 0: print(f"path step {i} ...")
         # print(f"path step {i} pos {pos} ...")
-        reachable_cheats = set(part2_possible_cheat_locs(pos, cheatradius, grid))
+        reachable_cheats = set(p2_cheat_endpoints(grid, pos,
+        cheatradius))
+        # reachable_cheats = set(part2_possible_cheat_locs(pos, cheatradius, grid))
         # print(f"   reachable cheats", len(reachable_cheats))
         for cheat in reachable_cheats:
             posdist = dist[pos]
@@ -241,9 +225,6 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
             if cheatdist >= posdist:
                 continue
             savings[posdist - cheatdist].add((pos, cheat))
-
-    # for k, v in sorted(savings.items(), key=star(lambda k, _: k)):
-    #     print(f"{k} picoseconds: {len(v)} cheats")
 
     print(f"{mincheat = } {cheatradius = }")
     part2_above_mincheat = 0
@@ -303,47 +284,13 @@ if __name__ == '__main__':
 def test_mh_dist(expected, p, q):
     assert expected == mh_dist(p, q)
 
-def test_md_mask_d_0():
-    mask = md_mask(0)
-    assert (
-        mask ==
-        np.array([
-            [1]
-        ],
-        dtype=np.bool)
-    ).all()
-def test_md_mask_d_1():
-    mask = md_mask(1)
-    assert (
-        mask ==
-        np.array([
-            [0, 1, 0],
-            [1, 1, 1],
-            [0, 1, 0],
-        ],
-        dtype=np.bool)
-    ).all()
-def test_md_mask_d_2():
-    mask = md_mask(2)
-    assert (
-        mask ==
-        np.array([
-            [0, 0, 1, 0, 0],
-            [0, 1, 1, 1, 0],
-            [1, 1, 1, 1, 1],
-            [0, 1, 1, 1, 0],
-            [0, 0, 1, 0, 0],
-        ],
-        dtype=np.bool)
-    ).all()
-
 def make_grid(*lines):
     return np.array(
         list(map(list, lines)),
         dtype=np.dtypes.StringDType
     )
 
-def test_part2_cheat_locs_with_blocks():
+def test_p2_cheat_endpoints_1():
     grid = make_grid(
         ".....",
         ".S#S.", # same as dots, but easier to se
@@ -351,13 +298,13 @@ def test_part2_cheat_locs_with_blocks():
         ".S#S.",
         ".....",
     )
-    locs = set(part2_possible_cheat_locs((2, 2), 1, grid))
+    locs = set(p2_cheat_endpoints(grid, (2, 2), 1))
     assert locs == {
         (2, 2),
         (2, 1), (2, 3),
         # (1, 2), (3, 2),
     }
-def test_part2_cheat_locs_away_from_edges():
+def test_p2_cheat_endpoints_2():
     grid = make_grid(
         ".....",
         ".SSS.", # same as dots, but easier to see
@@ -365,13 +312,14 @@ def test_part2_cheat_locs_away_from_edges():
         ".SSS.",
         ".....",
     )
-    locs = set(part2_possible_cheat_locs((2, 2), 1, grid))
+    locs = set(p2_cheat_endpoints(grid, (2, 2), 1))
     assert locs == {
         (2, 2),
         (2, 1), (2, 3),
         (1, 2), (3, 2),
     }
-def test_part2_cheat_locs_at_ul_boundary():
+
+def test_p2_cheat_endpoints_3():
     grid = make_grid(
         "SSS..",
         "SSS..", # same as dots, but easier to see
@@ -379,14 +327,14 @@ def test_part2_cheat_locs_at_ul_boundary():
         ".....",
         ".....",
     )
-    locs = set(part2_possible_cheat_locs((1, 1), 1, grid))
+    locs = set(p2_cheat_endpoints(grid, (1, 1), 1))
     assert locs == {
         (1, 1),
         (1, 0), (1, 2),
         (0, 1), (2, 1),
     }
 
-def test_part2_cheat_locs_with_mask_beyond_ul_corner():
+def test_p2_cheat_endpoints_4():
     grid = make_grid(
         "SS...",
         "SS...", # same as dots, but easier to see
@@ -394,7 +342,7 @@ def test_part2_cheat_locs_with_mask_beyond_ul_corner():
         ".....",
         ".....",
     )
-    locs = set(part2_possible_cheat_locs((0, 0), 1, grid))
+    locs = set(p2_cheat_endpoints(grid, (0, 0), 1))
     assert locs == {
         (0, 0), (0, 1), (1, 0)
     }
