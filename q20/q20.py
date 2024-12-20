@@ -187,11 +187,17 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
 
     start = only(locate(grid == "S"))
     end = only(locate(grid == "E"))
+
+    def make_distvec():
+        return np.full_like(grid, fill_value=float('inf'), dtype=np.float64)
+
     dist, prev = astar(
         start,
         None,
         neighbours,
+        dist_factory=make_distvec,
     )
+
     print(f"{end = } {dist[end] = }")
     shortest_path = extract_path(prev, end)
 
@@ -212,11 +218,9 @@ def part1(filename, cheatradius, mincheat=50, part2=False):
 
     print(f"{mincheat = } {cheatradius = }")
     for i, pos in enumerate(shortest_path):
-        if i % 250 == 0: print(f"path step {i} ...")
+        if i % 500 == 0: print(f"path step {i} ...")
         # print(f"path step {i} pos {pos} ...")
-        reachable_cheats = set(p2_cheat_endpoints(grid, pos,
-        cheatradius))
-        # reachable_cheats = set(part2_possible_cheat_locs(pos, cheatradius, grid))
+        reachable_cheats = set(p2_cheat_endpoints(grid, pos, cheatradius))
         # print(f"   reachable cheats", len(reachable_cheats))
         for cheat in reachable_cheats:
             posdist = dist[pos]
