@@ -158,6 +158,35 @@ def sliding_window[T](
 def part2(filename):
     network = read_input(filename)
 
+    # See the Bron-Kerbosch Algorithm page in wikipedia.
+    # This code implements the simplest version, named
+    # `BronKerbosch1`.
+    #
+    # There are a couple confusing things about the pseudo-code when
+    # you translate it into python.
+    #
+    # (1) The pseudocode contains this iteration:
+    #
+    #   ```
+    #   for each vertex v in P:
+    #       bron_kerbosch1(...)
+    #       P := P \ {v}
+    #       X := X \cup {v}
+    #   ```
+    #
+    # If you translate this to a python for loop, P is being modified
+    # while it's be iterated over, which can lead to surprising
+    # behaviour. I used a for loop initially (not even noticing the
+    # problem), but then changed the the while-loop form below which I
+    # believe is the *intent* of the pseudocode. Oddly, when I
+    # implemented this as a for loop, it still worked: I suspect
+    # because we're, in effect, deleting just *behind* the iteration,
+    # and that probably works out ok just by co-incidence.
+    #
+    # (2) As written below, all of R, P, and X are mutable sets, and
+    # so P is being modified as the function proceeds. This is
+    # apparently ok, I think because each recursive call has freshly
+    # computed sets to process.
     def bron_kerbosch(
             R: set[str],
             P: set[str],
@@ -166,7 +195,8 @@ def part2(filename):
         if len(P) == 0 and len(X) == 0:
             yield R
             return
-        for v in P:
+        while P:
+            v = next(iter(P))
             yield from bron_kerbosch(
                 R | {v},
                 P & network[v],
@@ -175,12 +205,11 @@ def part2(filename):
             P = P - {v}
             X = X | {v}
 
-    max_clique = {}
-    for clique in bron_kerbosch(set(), set(network.keys()), set()):
-        if len(clique) > len(max_clique):
-            max_clique = clique
-    print(max_clique)
-
+    max_clique = max(
+        bron_kerbosch(set(), set(network.keys()), set()),
+        key=len
+    )
+    # print(max_clique)
     print("password:", ",".join(sorted(max_clique)))
 
 def usage(message):
